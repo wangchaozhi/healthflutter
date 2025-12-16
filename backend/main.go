@@ -451,7 +451,7 @@ func listActivitiesHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Sscanf(userID, "%d", &userIDInt)
 
 	rows, err := db.Query(
-		"SELECT id, user_id, record_date, record_time, week_day, duration, remark, created_at FROM health_activities WHERE user_id = ? ORDER BY record_date DESC, record_time DESC",
+		"SELECT id, user_id, record_date, record_time, week_day, duration, remark, created_at FROM health_activities WHERE user_id = ? ORDER BY record_date DESC, record_time DESC LIMIT 10",
 		userIDInt,
 	)
 	if err != nil {

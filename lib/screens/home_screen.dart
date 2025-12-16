@@ -12,7 +12,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  Map<String, dynamic>? _userInfo;
   bool _isLoading = true;
   List<dynamic> _healthList = [];
   Map<String, dynamic>? _stats;
@@ -61,26 +60,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadData() async {
     await Future.wait([
-      _loadUserInfo(),
       _loadActivities(),
       _loadStats(),
     ]);
-  }
-
-  Future<void> _loadUserInfo() async {
-    final result = await ApiService.getProfile();
-    if (mounted) {
-      setState(() {
-        if (result['success'] == true) {
-          _userInfo = result['user'];
-        } else {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-          );
-          return;
-        }
-      });
-    }
   }
 
   Future<void> _loadActivities() async {
