@@ -11,22 +11,23 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
+Thumbs.db
 
-# IntelliJ related
+# IntelliJ / Android Studio
+.idea/
 *.iml
 *.ipr
 *.iws
-.idea/
+.metadata
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# VS Code
+.vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
@@ -39,16 +40,59 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# Android
+android/.gradle/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+android/app/build/
+android/build/
+android/captures/
+android/.gradle/
+android/gradle/wrapper/gradle-wrapper.jar
+android/.cxx/
+android/key.properties
+android/**/*.keystore
+android/**/*.jks
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/Flutter/flutter_export_environment.sh
+ios/ServiceDefinitions.json
+ios/Runner/GeneratedPluginRegistrant.*
+
+# macOS
+macos/Flutter/ephemeral/
+macos/Flutter/GeneratedPluginRegistrant.swift
+
+# Linux
+linux/flutter/ephemeral/
+
+# Windows
+windows/flutter/ephemeral/
 
 # Go related
 backend/*.db
 backend/*.db-shm
 backend/*.db-wal
+backend/.idea/
 
 # Environment variables
 .env
 .env.local
+
+# Test related
+.test_coverage/
+
+# Note: pubspec.lock should be committed for Flutter apps
+# It locks dependency versions for consistent builds
+# 
+# Note: gradlew and gradlew.bat should be committed (Gradle wrapper scripts)
+# Note: gradle-wrapper.properties should be committed
+# Note: gradle-wrapper.jar can be large, typically excluded but some projects include it
