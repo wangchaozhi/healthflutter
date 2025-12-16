@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+import '../utils/debounce.dart';
 import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -21,13 +22,18 @@ class _HomeScreenState extends State<HomeScreen> {
   // 表单数据
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
-  int _duration = 0;
+  int _duration = 1;
   String _remark = '';
   final TextEditingController _durationController = TextEditingController();
   final TextEditingController _remarkController = TextEditingController();
   
   // 滑动删除相关
   Map<int, double> _swipeX = {};
+  
+  // 防抖相关
+  final DebounceState _submitDebounce = DebounceState();
+  final DebounceState _deleteDebounce = DebounceState();
+  final DebounceState _logoutDebounce = DebounceState();
 
   @override
   void initState() {
@@ -132,13 +138,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showRecordForm() {
+    // 防抖：500ms内不重复点击
+    if (!Debounce.debounceTime(delay: 500)) {
+      return;
+    }
+    
     setState(() {
       _isRecordFormVisible = true;
       _selectedDate = DateTime.now();
       _selectedTime = TimeOfDay.now();
-      _duration = 0;
+      _duration = 1; // 默认值为1
       _remark = '';
-      _durationController.clear();
+      _durationController.text = '1'; // 设置默认值
       _remarkController.clear();
     });
   }
@@ -157,51 +168,73 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final recordDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
-    final recordTime = '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}';
+    await _submitDebounce.execute(
+      action: () async {
+        final recordDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
+        final recordTime = '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}';
 
-    final result = await ApiService.createActivity(
-      recordDate: recordDate,
-      recordTime: recordTime,
-      duration: _duration,
-      remark: _remark,
+        final result = await ApiService.createActivity(
+          recordDate: recordDate,
+          recordTime: recordTime,
+          duration: _duration,
+          remark: _remark,
+        );
+
+        if (mounted) {
+          if (result['success'] == true) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('记录成功')),
+            );
+            _closeForm();
+            await _loadActivities();
+            await _loadStats();
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(result['message'] ?? '记录失败')),
+            );
+          }
+        }
+      },
+      onStart: () {
+        if (mounted) setState(() {});
+      },
+      onEnd: () {
+        if (mounted) setState(() {});
+      },
     );
-
-    if (mounted) {
-      if (result['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('记录成功')),
-        );
-        _closeForm();
-        await _loadActivities();
-        await _loadStats();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? '记录失败')),
-        );
-      }
-    }
   }
 
   Future<void> _deleteItem(int id) async {
-    final result = await ApiService.deleteActivity(id);
-    if (mounted) {
-      if (result['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('删除成功')),
-        );
-        await _loadActivities();
-        await _loadStats();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? '删除失败')),
-        );
-      }
-    }
-    // 重置滑动
-    setState(() {
-      _swipeX.remove(id);
-    });
+    await _deleteDebounce.execute(
+      action: () async {
+        final result = await ApiService.deleteActivity(id);
+        if (mounted) {
+          if (result['success'] == true) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('删除成功')),
+            );
+            await _loadActivities();
+            await _loadStats();
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(result['message'] ?? '删除失败')),
+            );
+          }
+        }
+        // 重置滑动
+        if (mounted) {
+          setState(() {
+            _swipeX.remove(id);
+          });
+        }
+      },
+      onStart: () {
+        if (mounted) setState(() {});
+      },
+      onEnd: () {
+        if (mounted) setState(() {});
+      },
+    );
   }
 
   void _onDurationInput(String value) {
@@ -240,18 +273,28 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _handleLogout() async {
-    await ApiService.logout();
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-    }
+    await _logoutDebounce.execute(
+      action: () async {
+        await ApiService.logout();
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          );
+        }
+      },
+      onStart: () {
+        if (mounted) setState(() {});
+      },
+    );
   }
 
   @override
   void dispose() {
     _durationController.dispose();
     _remarkController.dispose();
+    _submitDebounce.dispose();
+    _deleteDebounce.dispose();
+    _logoutDebounce.dispose();
     super.dispose();
   }
 
@@ -263,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: _handleLogout,
+            onPressed: _logoutDebounce.canExecute ? _handleLogout : null,
             tooltip: '退出登录',
           ),
         ],
@@ -309,6 +352,44 @@ class _HomeScreenState extends State<HomeScreen> {
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            // 总计活动次数
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    '总计活动次数：',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey[700],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${_stats?['total_count'] ?? 0}',
+                                    style: const TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.orange,
+                                    ),
+                                  ),
+                                  const Text(
+                                    ' 次',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -409,11 +490,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                         child: Center(
                                           child: TextButton(
-                                            onPressed: () => _deleteItem(id),
-                                            child: const Text(
-                                              '删除',
-                                              style: TextStyle(color: Colors.white),
-                                            ),
+                                            onPressed: _deleteDebounce.canExecute ? () => _deleteItem(id) : null,
+                                            child: !_deleteDebounce.canExecute
+                                                ? const SizedBox(
+                                                    width: 16,
+                                                    height: 16,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                                    ),
+                                                  )
+                                                : const Text(
+                                                    '删除',
+                                                    style: TextStyle(color: Colors.white),
+                                                  ),
                                           ),
                                         ),
                                       ),
@@ -556,8 +646,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                 children: [
                                   Expanded(
                                     child: ElevatedButton(
-                                      onPressed: _submitRecord,
-                                      child: const Text('确定'),
+                                      onPressed: _submitDebounce.canExecute ? _submitRecord : null,
+                                      child: !_submitDebounce.canExecute
+                                          ? const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(strokeWidth: 2),
+                                            )
+                                          : const Text('确定'),
                                     ),
                                   ),
                                   const SizedBox(width: 12),

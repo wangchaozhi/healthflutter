@@ -75,8 +75,9 @@ type ActivityResponse struct {
 }
 
 type ActivityStats struct {
-	YearCount  int `json:"year_count"`
-	MonthCount int `json:"month_count"`
+	TotalCount int `json:"total_count"`  // 总计活动次数
+	YearCount  int `json:"year_count"`   // 今年活动次数
+	MonthCount int `json:"month_count"`   // 本月活动次数
 }
 
 func initDB() {
@@ -562,6 +563,13 @@ func getActivityStatsHandler(w http.ResponseWriter, r *http.Request) {
 	currentYear := now.Format("2006")
 	currentMonth := now.Format("2006-01")
 
+	// 查询总计总数
+	var totalCount int
+	db.QueryRow(
+		"SELECT COUNT(*) FROM health_activities WHERE user_id = ?",
+		userIDInt,
+	).Scan(&totalCount)
+
 	// 查询今年总数
 	var yearCount int
 	db.QueryRow(
@@ -577,6 +585,7 @@ func getActivityStatsHandler(w http.ResponseWriter, r *http.Request) {
 	).Scan(&monthCount)
 
 	stats := ActivityStats{
+		TotalCount: totalCount,
 		YearCount:  yearCount,
 		MonthCount: monthCount,
 	}

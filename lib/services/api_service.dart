@@ -93,6 +93,47 @@ class ApiService {
   // 登出
   static Future<void> logout() async {
     await clearToken();
+    // 不清除记住的密码，保持用户选择
+  }
+  
+  // 保存记住的用户名和密码
+  static Future<void> saveRememberedCredentials(String username, String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('remembered_username', username);
+    await prefs.setString('remembered_password', password);
+    await prefs.setBool('remember_password', true);
+  }
+  
+  // 获取记住的用户名和密码
+  static Future<Map<String, String?>> getRememberedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final shouldRemember = prefs.getBool('remember_password') ?? false;
+    if (shouldRemember) {
+      return {
+        'username': prefs.getString('remembered_username'),
+        'password': prefs.getString('remembered_password'),
+      };
+    }
+    return {'username': null, 'password': null};
+  }
+  
+  // 清除记住的用户名和密码
+  static Future<void> clearRememberedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('remembered_username');
+    await prefs.remove('remembered_password');
+    await prefs.setBool('remember_password', false);
+  }
+  
+  // 检查是否已登录
+  static Future<bool> isLoggedIn() async {
+    final token = await getToken();
+    if (token == null) {
+      return false;
+    }
+    // 验证token是否有效
+    final result = await getProfile();
+    return result['success'] == true;
   }
   
   // 创建健康活动记录

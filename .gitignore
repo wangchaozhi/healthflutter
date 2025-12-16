@@ -82,6 +82,9 @@ backend/*.db
 backend/*.db-shm
 backend/*.db-wal
 backend/.idea/
+backend/health_server
+backend/health_server.exe
+backend/*.exe
 
 # Environment variables
 .env

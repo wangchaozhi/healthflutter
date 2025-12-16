@@ -15,6 +15,34 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _rememberPassword = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginStatus();
+    _loadRememberedCredentials();
+  }
+
+  Future<void> _checkLoginStatus() async {
+    final isLoggedIn = await ApiService.isLoggedIn();
+    if (isLoggedIn && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
+    }
+  }
+
+  Future<void> _loadRememberedCredentials() async {
+    final credentials = await ApiService.getRememberedCredentials();
+    if (credentials['username'] != null && credentials['password'] != null) {
+      setState(() {
+        _usernameController.text = credentials['username']!;
+        _passwordController.text = credentials['password']!;
+        _rememberPassword = true;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -44,6 +72,17 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (result['success'] == true) {
+      // 如果勾选了记住密码，保存用户名和密码
+      if (_rememberPassword) {
+        await ApiService.saveRememberedCredentials(
+          _usernameController.text.trim(),
+          _passwordController.text,
+        );
+      } else {
+        // 如果没有勾选，清除之前保存的
+        await ApiService.clearRememberedCredentials();
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('登录成功')),
       );
@@ -126,6 +165,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       }
                       return null;
                     },
+                  ),
+                  const SizedBox(height: 16),
+                  CheckboxListTile(
+                    title: const Text('记住密码'),
+                    value: _rememberPassword,
+                    onChanged: (value) {
+                      setState(() {
+                        _rememberPassword = value ?? false;
+                      });
+                    },
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
