@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _remarkController = TextEditingController();
   
   // 滑动删除相关
-  Map<int, double> _swipeX = {};
+  final Map<int, double> _swipeX = {};
   
   // 防抖相关
   final DebounceState _submitDebounce = DebounceState();
@@ -521,7 +521,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                           );
-                        }).toList(),
+                        }),
                       ] else ...[
                         Container(
                           padding: const EdgeInsets.all(32),
