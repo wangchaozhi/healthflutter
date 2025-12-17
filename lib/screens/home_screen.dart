@@ -295,40 +295,47 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Stack(
-              children: [
-                SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // 日期时间显示
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _currentDateTime,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      // 健康活动记录容器
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                // 桌面端限制最大宽度为1200px
+                final maxWidth = constraints.maxWidth > 1200 ? 1200.0 : constraints.maxWidth;
+                return Stack(
+                  children: [
+                    Center(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16.0),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: maxWidth),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // 日期时间显示
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  _currentDateTime,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              // 健康活动记录容器
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
                             const Text(
                               '健康活动记录',
                               style: TextStyle(
@@ -418,12 +425,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      // 健康活动记录列表
-                      if (_healthList.isNotEmpty) ...[
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              // 健康活动记录列表
+                              if (_healthList.isNotEmpty) ...[
                         const Text(
                           '活动记录列表',
                           style: TextStyle(
@@ -521,41 +528,48 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                           );
-                        }),
-                      ] else ...[
-                        Container(
-                          padding: const EdgeInsets.all(32),
-                          child: const Center(
-                            child: Text(
-                              '暂无活动记录',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey,
-                              ),
-                            ),
+                                }),
+                              ] else ...[
+                                Container(
+                                  padding: const EdgeInsets.all(32),
+                                  child: const Center(
+                                    child: Text(
+                                      '暂无活动记录',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                      ],
-                    ],
-                  ),
-                ),
-                // 记录表单弹窗
-                if (_isRecordFormVisible)
-                  Container(
-                    color: Colors.black54,
-                    child: Center(
-                      child: Container(
-                        margin: const EdgeInsets.all(24),
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
+                      ),
+                    ),
+                    // 记录表单弹窗
+                    if (_isRecordFormVisible)
+                      Container(
+                        color: Colors.black54,
+                        child: Center(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              // 桌面端限制最大宽度为600px
+                              final maxWidth = constraints.maxWidth > 600 ? 600.0 : constraints.maxWidth;
+                              return Container(
+                                margin: const EdgeInsets.all(24),
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                constraints: BoxConstraints(maxWidth: maxWidth),
+                                child: SingleChildScrollView(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
                               const Text(
                                 '记录健康活动',
                                 style: TextStyle(
@@ -647,13 +661,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ],
                               ),
-                            ],
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),
-                    ),
-                  ),
-              ],
+                  ],
+                );
+              },
             ),
     );
   }
