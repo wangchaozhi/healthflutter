@@ -20,7 +20,7 @@ func DouyinParsingHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := getUserID(r)
+	userID := GetUserID(r)
 	if userID == 0 {
 		http.Error(w, "未授权", http.StatusUnauthorized)
 		return
@@ -133,7 +133,7 @@ func DouyinFileListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := getUserID(r)
+	userID := GetUserID(r)
 	if userID == 0 {
 		http.Error(w, "未授权", http.StatusUnauthorized)
 		return
@@ -164,7 +164,7 @@ func DouyinDownloadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := getUserID(r)
+	userID := GetUserID(r)
 	if userID == 0 {
 		http.Error(w, "未授权", http.StatusUnauthorized)
 		return
@@ -206,11 +206,4 @@ func DouyinDownloadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // 从请求头获取用户ID（辅助函数）
-func getUserID(r *http.Request) int {
-	userIDStr := r.Header.Get("X-User-ID")
-	if userIDStr == "" {
-		return 0
-	}
-	userID, _ := strconv.Atoi(userIDStr)
-	return userID
-}
+// getUserID 函数已移至 auth.go

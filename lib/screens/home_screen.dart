@@ -301,6 +301,13 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: '文件传输',
           ),
           IconButton(
+            icon: const Icon(Icons.music_note),
+            onPressed: () {
+              Navigator.of(context).pushNamed('/music_player');
+            },
+            tooltip: '音乐播放器',
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logoutDebounce.canExecute ? _handleLogout : null,
             tooltip: '退出登录',

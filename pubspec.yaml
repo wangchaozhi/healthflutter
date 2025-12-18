@@ -45,6 +45,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   desktop_drop: ^0.7.0
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:

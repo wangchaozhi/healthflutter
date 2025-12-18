@@ -12,10 +12,7 @@ import (
 	"backend/database"
 	"backend/handlers"
 	"golang.org/x/crypto/bcrypt"
-	"github.com/golang-jwt/jwt/v5"
 )
-
-var jwtSecret = []byte("your-secret-key-change-in-production")
 
 type User struct {
 	ID       int    `json:"id"`
@@ -38,12 +35,6 @@ type AuthResponse struct {
 	Message string `json:"message"`
 	Token   string `json:"token,omitempty"`
 	User    *User  `json:"user,omitempty"`
-}
-
-type Claims struct {
-	Username string `json:"username"`
-	UserID   int    `json:"user_id"`
-	jwt.RegisteredClaims
 }
 
 // 健康活动记录
@@ -74,9 +65,9 @@ type ActivityResponse struct {
 }
 
 type ActivityStats struct {
-	TotalCount int `json:"total_count"`  // 总计活动次数
-	YearCount  int `json:"year_count"`   // 今年活动次数
-	MonthCount int `json:"month_count"`   // 本月活动次数
+	TotalCount int `json:"total_count"` // 总计活动次数
+	YearCount  int `json:"year_count"`  // 今年活动次数
+	MonthCount int `json:"month_count"` // 本月活动次数
 }
 
 func initDB() {
@@ -95,19 +86,7 @@ func checkPasswordHash(password, hash string) bool {
 	return err == nil
 }
 
-func generateToken(username string, userID int) (string, error) {
-	claims := Claims{
-		Username: username,
-		UserID:   userID,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
-}
+// generateToken 已移至 handlers.GenerateToken
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -166,7 +145,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	userID, _ := result.LastInsertId()
 
 	// 生成token
-	token, err := generateToken(req.Username, int(userID))
+	token, err := handlers.GenerateToken(req.Username, int(userID))
 	if err != nil {
 		http.Error(w, "Token生成失败", http.StatusInternalServerError)
 		return
@@ -227,7 +206,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 生成token
-	token, err := generateToken(req.Username, userID)
+	token, err := handlers.GenerateToken(req.Username, userID)
 	if err != nil {
 		http.Error(w, "Token生成失败", http.StatusInternalServerError)
 		return
@@ -245,49 +224,8 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func verifyToken(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		return jwtSecret, nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
-		return claims, nil
-	}
-
-	return nil, fmt.Errorf("无效的token")
-}
-
-func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			http.Error(w, "未授权", http.StatusUnauthorized)
-			return
-		}
-
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			http.Error(w, "无效的授权头", http.StatusUnauthorized)
-			return
-		}
-
-		claims, err := verifyToken(parts[1])
-		if err != nil {
-			http.Error(w, "无效的token", http.StatusUnauthorized)
-			return
-		}
-
-		// 将claims存储到请求上下文中（可选）
-		r.Header.Set("X-User-ID", fmt.Sprintf("%d", claims.UserID))
-		r.Header.Set("X-Username", claims.Username)
-
-		next(w, r)
-	}
-}
+// authMiddleware 使用handlers包中的AuthMiddleware
+var authMiddleware = handlers.AuthMiddleware
 
 func profileHandler(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
@@ -560,12 +498,12 @@ func getActivityStatsHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Range")
+		w.Header().Set("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
@@ -611,6 +549,13 @@ func main() {
 	mux.HandleFunc("/api/file/delete", authMiddleware(handlers.FileDeleteHandler))
 	mux.HandleFunc("/api/file/download", authMiddleware(handlers.FileDownloadHandler))
 	mux.HandleFunc("/api/file/clipboard", authMiddleware(handlers.SaveClipboardHandler))
+
+	// 音乐播放器相关路由
+	mux.HandleFunc("/api/music/upload", authMiddleware(handlers.MusicUploadHandler))
+	mux.HandleFunc("/api/music/list", authMiddleware(handlers.MusicListHandler))
+	mux.HandleFunc("/api/music/delete", authMiddleware(handlers.MusicDeleteHandler))
+	// stream 路由不使用 authMiddleware，因为它从 URL 参数获取 token
+	mux.HandleFunc("/api/music/stream", handlers.MusicStreamHandler)
 
 	handler := corsMiddleware(mux)
 

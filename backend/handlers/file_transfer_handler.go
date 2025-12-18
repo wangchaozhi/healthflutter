@@ -39,7 +39,7 @@ func FileUploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := getUserID(r)
+	userID := GetUserID(r)
 	if userID == 0 {
 		http.Error(w, "未授权", http.StatusUnauthorized)
 		return
@@ -128,7 +128,7 @@ func FileListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := getUserID(r)
+	userID := GetUserID(r)
 	if userID == 0 {
 		http.Error(w, "未授权", http.StatusUnauthorized)
 		return
@@ -174,7 +174,7 @@ func FileDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := getUserID(r)
+	userID := GetUserID(r)
 	if userID == 0 {
 		http.Error(w, "未授权", http.StatusUnauthorized)
 		return
@@ -213,7 +213,7 @@ func FileDownloadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := getUserID(r)
+	userID := GetUserID(r)
 	if userID == 0 {
 		http.Error(w, "未授权", http.StatusUnauthorized)
 		return
@@ -261,7 +261,7 @@ func SaveClipboardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := getUserID(r)
+	userID := GetUserID(r)
 	if userID == 0 {
 		http.Error(w, "未授权", http.StatusUnauthorized)
 		return

@@ -53,13 +53,18 @@ func InitDB(dbPath string) error {
             return err
         }
 
-        // 初始化文件传输表
-        if err := InitFileTransferTable(); err != nil {
-            return err
-        }
+	// 初始化文件传输表
+	if err := InitFileTransferTable(); err != nil {
+		return err
+	}
+	
+	// 初始化音乐表
+	if err := InitMusicTable(); err != nil {
+		return err
+	}
 
-        log.Println("数据库初始化成功")
-        return nil
+	log.Println("数据库初始化成功")
+	return nil
 }
 
 // CloseDB 关闭数据库连接
