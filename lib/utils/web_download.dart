@@ -2,8 +2,8 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 // 条件导入：仅在Web平台导入dart:html
-// 在非Web平台，这个导入会被忽略（因为dart:html不存在）
-// 注意：Flutter Web会自动处理条件导入
+// 在非Web平台，这些函数不会被调用（因为kIsWeb检查）
+// 但为了编译通过，我们需要使用条件导入
 import 'dart:html' as html if (dart.library.html) 'dart:html';
 
 /// Web平台直接下载文件（使用HttpRequest，不加载到内存）

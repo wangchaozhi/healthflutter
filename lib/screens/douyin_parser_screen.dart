@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import '../services/api_service.dart';
-import '../utils/web_download.dart';
+// 条件导入：仅在Web平台导入web_download
+import '../utils/web_download.dart' if (dart.library.io) '../utils/web_download_stub.dart';
+import '../utils/native_download.dart' show downloadFileNative, openDownloadDirectory;
 
 class DouyinParserScreen extends StatefulWidget {
   const DouyinParserScreen({super.key});
@@ -111,22 +114,60 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
           }
         }
       } else {
-        // 在移动端，使用http请求下载
-        final response = await http.get(
-          Uri.parse(downloadUrl),
-          headers: {
-            'Authorization': 'Bearer $token',
-          },
-        );
-        
-        if (mounted) {
-          if (response.statusCode == 200) {
+        // 在移动端和桌面端，使用native下载功能
+        try {
+          final filePath = await downloadFileNative(downloadUrl, token, fileName);
+          if (mounted) {
+            // 检查是否为视频文件和是否为移动端
+            final isVideo = fileName.toLowerCase().endsWith('.mp4') ||
+                fileName.toLowerCase().endsWith('.avi') ||
+                fileName.toLowerCase().endsWith('.mov') ||
+                fileName.toLowerCase().endsWith('.mkv') ||
+                fileName.toLowerCase().endsWith('.flv') ||
+                fileName.toLowerCase().endsWith('.wmv') ||
+                fileName.toLowerCase().endsWith('.webm');
+            
+            // 检查是否为移动端（Android/iOS）
+            final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+            
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('下载成功: $fileName')),
+              SnackBar(
+                content: Text(
+                  (isVideo && isMobile)
+                    ? '下载成功！视频已保存到相册\n$fileName'
+                    : '下载成功: $fileName\n路径: $filePath'
+                ),
+                action: SnackBarAction(
+                  label: '打开目录',
+                  onPressed: () async {
+                    try {
+                      await openDownloadDirectory(filePath);
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('无法打开文件管理器，请手动访问: $filePath')),
+                        );
+                      }
+                    }
+                  },
+                ),
+                duration: const Duration(seconds: 6),
+              ),
             );
-          } else {
+          }
+        } catch (e) {
+          debugPrint('下载失败: $e');
+          if (mounted) {
+            String errorMessage = '下载失败: $e';
+            // 如果是权限问题，提供更友好的提示
+            if (e.toString().contains('权限') || e.toString().contains('permission')) {
+              errorMessage = '下载失败: 需要存储权限才能下载到公共下载目录，请在设置中授予存储权限';
+            }
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('下载失败: ${response.statusCode}')),
+              SnackBar(
+                content: Text(errorMessage),
+                duration: const Duration(seconds: 4),
+              ),
             );
           }
         }
