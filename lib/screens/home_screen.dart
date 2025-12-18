@@ -294,6 +294,13 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: '抖音解析工具',
           ),
           IconButton(
+            icon: const Icon(Icons.file_upload),
+            onPressed: () {
+              Navigator.of(context).pushNamed('/file_transfer');
+            },
+            tooltip: '文件传输',
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logoutDebounce.canExecute ? _handleLogout : null,
             tooltip: '退出登录',

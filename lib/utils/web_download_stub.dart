@@ -12,3 +12,13 @@ Future<void> downloadFileWebDirect(String url, String token, String fileName) as
 void downloadFileWeb(Uint8List bytes, String fileName) {
   throw UnsupportedError('downloadFileWeb is only available on web platform');
 }
+
+/// Stub for downloadFileNative (when imported by web platform as stub)
+Future<String> downloadFileNative(String url, String token, String fileName) async {
+  throw UnsupportedError('downloadFileNative is not available on web platform');
+}
+
+/// Stub for openDownloadDirectory (when imported by web platform as stub)
+Future<void> openDownloadDirectory(String filePath) async {
+  throw UnsupportedError('openDownloadDirectory is not available on web platform');
+}

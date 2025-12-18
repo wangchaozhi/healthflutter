@@ -86,6 +86,7 @@ backend/health_server
 backend/health_server.exe
 backend/*.exe
 backend/Download/
+backend/uploads/
 
 # Environment variables
 .env

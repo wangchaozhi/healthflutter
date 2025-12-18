@@ -4,6 +4,7 @@ import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/douyin_parser_screen.dart';
+import 'screens/file_transfer_screen.dart';
 import 'services/api_service.dart';
 
 void main() {
@@ -38,6 +39,7 @@ class MyApp extends StatelessWidget {
         '/register': (context) => const RegisterScreen(),
         '/home': (context) => const HomeScreen(),
         '/douyin': (context) => const DouyinParserScreen(),
+        '/file_transfer': (context) => const FileTransferScreen(),
       },
     );
   }

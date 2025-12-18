@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+  "fmt"
 	"log"
 	"net/http"
 	"os"
@@ -605,6 +605,13 @@ func main() {
 	mux.HandleFunc("/api/douyin/files", authMiddleware(handlers.DouyinFileListHandler))
 	mux.HandleFunc("/api/douyin/download", authMiddleware(handlers.DouyinDownloadHandler))
 
+	// 文件传输相关路由
+	mux.HandleFunc("/api/file/upload", authMiddleware(handlers.FileUploadHandler))
+	mux.HandleFunc("/api/file/list", authMiddleware(handlers.FileListHandler))
+	mux.HandleFunc("/api/file/delete", authMiddleware(handlers.FileDeleteHandler))
+	mux.HandleFunc("/api/file/download", authMiddleware(handlers.FileDownloadHandler))
+	mux.HandleFunc("/api/file/clipboard", authMiddleware(handlers.SaveClipboardHandler))
+
 	handler := corsMiddleware(mux)
 
 	port := os.Getenv("PORT")
@@ -614,4 +621,4 @@ func main() {
 
 	log.Printf("服务器启动在端口 %s", port)
 	log.Fatal(http.ListenAndServe(":"+port, handler))
-}
+  }

@@ -1,12 +1,10 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:http/http.dart' as http;
 import '../services/api_service.dart';
 // 条件导入：仅在Web平台导入web_download
-import '../utils/web_download.dart' if (dart.library.io) '../utils/web_download_stub.dart';
-import '../utils/native_download.dart' show downloadFileNative, openDownloadDirectory;
+import '../utils/web_download_stub.dart' if (dart.library.html) '../utils/web_download.dart' as web_download;
+import '../utils/native_download.dart' if (dart.library.html) '../utils/web_download_stub.dart' as native_download;
 
 class DouyinParserScreen extends StatefulWidget {
   const DouyinParserScreen({super.key});
@@ -99,7 +97,7 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
       if (kIsWeb) {
         // 在Web平台，直接使用fetch API下载，避免将整个文件加载到内存
         try {
-          await downloadFileWebDirect(downloadUrl, token, fileName);
+          await web_download.downloadFileWebDirect(downloadUrl, token, fileName);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('开始下载: $fileName')),
@@ -116,7 +114,7 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
       } else {
         // 在移动端和桌面端，使用native下载功能
         try {
-          final filePath = await downloadFileNative(downloadUrl, token, fileName);
+          final filePath = await native_download.downloadFileNative(downloadUrl, token, fileName);
           if (mounted) {
             // 检查是否为视频文件和是否为移动端
             final isVideo = fileName.toLowerCase().endsWith('.mp4') ||
@@ -141,7 +139,7 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
                   label: '打开目录',
                   onPressed: () async {
                     try {
-                      await openDownloadDirectory(filePath);
+                      await native_download.openDownloadDirectory(filePath);
                     } catch (e) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
