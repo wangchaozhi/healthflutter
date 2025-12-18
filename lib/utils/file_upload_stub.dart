@@ -13,6 +13,7 @@ Future<void> uploadFileFromPlatformFile(
   String token,
   String baseUrl,
   Function(bool success, String message) callback,
+  Function(double progress) onProgress,
 ) async {
   callback(false, 'Web平台不支持此上传方式');
 }
@@ -23,6 +24,7 @@ Future<void> uploadFileFromDragPath(
   String token,
   String baseUrl,
   Function(bool success, String message) callback,
+  Function(double progress) onProgress,
 ) async {
   callback(false, 'Web平台不支持拖拽上传');
 }

@@ -3,6 +3,7 @@ package database
 import (
 	"log"
 	"os"
+	"time"
 	
 	"backend/models"
 )
@@ -62,6 +63,7 @@ func GetUserFileTransfers(userID int, page, pageSize int) ([]models.FileTransfer
 	var files []models.FileTransfer
 	for rows.Next() {
 		var file models.FileTransfer
+		var createdAt string
 		err := rows.Scan(
 			&file.ID,
 			&file.UserID,
@@ -69,13 +71,21 @@ func GetUserFileTransfers(userID int, page, pageSize int) ([]models.FileTransfer
 			&file.FilePath,
 			&file.FileSize,
 			&file.FileType,
-			&file.CreatedAt,
+			&createdAt,
 		)
 		if err != nil {
 			continue
 		}
 		// 格式化文件大小
 		file.FileSizeStr = formatFileSizeInDB(file.FileSize)
+		
+		// 格式化日期时间为更友好的格式 (去掉 T 和 Z)
+		if t, err := time.Parse(time.RFC3339, createdAt); err == nil {
+			file.CreatedAt = t.Format("2006-01-02 15:04:05")
+		} else {
+			file.CreatedAt = createdAt
+		}
+		
 		files = append(files, file)
 	}
 	
@@ -91,23 +101,35 @@ func DeleteFileTransfer(id, userID int) error {
 		return err
 	}
 	
+	// 先删除物理文件（如果存在）
+	if _, err := os.Stat(filePath); err == nil {
+		// 文件存在，尝试删除
+		if err := os.Remove(filePath); err != nil {
+			log.Printf("删除物理文件失败: %v", err)
+			// 文件删除失败，不删除数据库记录
+			return err
+		}
+		log.Printf("物理文件删除成功: %s", filePath)
+	} else {
+		log.Printf("物理文件不存在: %s", filePath)
+		// 文件不存在，继续删除数据库记录
+	}
+	
 	// 删除数据库记录
 	_, err = DB.Exec("DELETE FROM file_transfers WHERE id = ? AND user_id = ?", id, userID)
 	if err != nil {
+		log.Printf("删除数据库记录失败: %v", err)
 		return err
 	}
 	
-	// 删除物理文件
-	if _, err := os.Stat(filePath); err == nil {
-		os.Remove(filePath)
-	}
-	
+	log.Printf("数据库记录删除成功: id=%d, user_id=%d", id, userID)
 	return nil
 }
 
 // GetFileTransferByID 根据ID获取文件信息
 func GetFileTransferByID(id, userID int) (*models.FileTransfer, error) {
 	var file models.FileTransfer
+	var createdAt string
 	err := DB.QueryRow(
 		"SELECT id, user_id, file_name, file_path, file_size, file_type, created_at FROM file_transfers WHERE id = ? AND user_id = ?",
 		id, userID,
@@ -118,12 +140,20 @@ func GetFileTransferByID(id, userID int) (*models.FileTransfer, error) {
 		&file.FilePath,
 		&file.FileSize,
 		&file.FileType,
-		&file.CreatedAt,
+		&createdAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 	file.FileSizeStr = formatFileSizeInDB(file.FileSize)
+	
+	// 格式化日期时间为更友好的格式 (去掉 T 和 Z)
+	if t, err := time.Parse(time.RFC3339, createdAt); err == nil {
+		file.CreatedAt = t.Format("2006-01-02 15:04:05")
+	} else {
+		file.CreatedAt = createdAt
+	}
+	
 	return &file, nil
 }
 

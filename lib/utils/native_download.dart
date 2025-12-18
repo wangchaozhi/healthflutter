@@ -84,9 +84,14 @@ Future<bool> requestStoragePermission() async {
   }
 }
 
-/// 移动端和桌面端下载文件
+/// 移动端和桌面端下载文件（带进度回调）
 /// 返回下载文件的完整路径
-Future<String> downloadFileNative(String url, String token, String fileName) async {
+Future<String> downloadFileNativeWithProgress(
+  String url,
+  String token,
+  String fileName,
+  Function(double progress) onProgress,
+) async {
   if (kIsWeb) {
     throw UnsupportedError('此方法仅在移动和桌面平台可用');
   }
@@ -185,20 +190,45 @@ Future<String> downloadFileNative(String url, String token, String fileName) asy
     final filePath = '${downloadDir.path}$separator$fileName';
     final file = File(filePath);
 
-    // 下载文件
-    final response = await http.get(
-      Uri.parse(url),
-      headers: {
-        'Authorization': 'Bearer $token',
-      },
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('下载失败: ${response.statusCode}');
+    // 使用流式下载以支持进度回调
+    final request = http.Request('GET', Uri.parse(url));
+    request.headers['Authorization'] = 'Bearer $token';
+    
+    final streamedResponse = await request.send();
+    
+    if (streamedResponse.statusCode != 200) {
+      throw Exception('下载失败: ${streamedResponse.statusCode}');
     }
 
-    // 保存文件
-    await file.writeAsBytes(response.bodyBytes);
+    // 从实际的响应头中获取文件大小
+    final totalBytes = streamedResponse.contentLength ?? 0;
+    debugPrint('文件总大小: $totalBytes bytes');
+
+    // 保存文件并监听进度
+    final sink = file.openWrite();
+    int downloadedBytes = 0;
+    
+    await for (var chunk in streamedResponse.stream) {
+      sink.add(chunk);
+      downloadedBytes += chunk.length;
+      
+      // 更新进度
+      if (totalBytes > 0) {
+        final progress = (downloadedBytes / totalBytes).clamp(0.0, 1.0);
+        onProgress(progress);
+      } else {
+        // 如果不知道总大小，显示不确定的进度（使用下载的字节数作为参考）
+        // 这种情况下不显示具体百分比，只显示loading动画
+        onProgress(0.0);
+      }
+    }
+    
+    await sink.close();
+    
+    debugPrint('下载完成，总共下载: $downloadedBytes bytes');
+    
+    // 确保进度达到100%
+    onProgress(1.0);
 
     debugPrint('文件下载成功: $filePath');
     
@@ -224,6 +254,12 @@ Future<String> downloadFileNative(String url, String token, String fileName) asy
   } catch (e) {
     throw Exception('下载文件失败: $e');
   }
+}
+
+/// 移动端和桌面端下载文件（不带进度回调，向后兼容）
+/// 返回下载文件的完整路径
+Future<String> downloadFileNative(String url, String token, String fileName) async {
+  return downloadFileNativeWithProgress(url, token, fileName, (_) {});
 }
 
 /// 判断是否为视频文件

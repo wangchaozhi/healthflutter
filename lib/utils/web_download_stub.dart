@@ -13,9 +13,29 @@ void downloadFileWeb(Uint8List bytes, String fileName) {
   throw UnsupportedError('downloadFileWeb is only available on web platform');
 }
 
+/// Stub for downloadFileWebDirectWithProgress (non-web platforms)
+Future<void> downloadFileWebDirectWithProgress(
+  String url,
+  String token,
+  String fileName,
+  Function(double progress) onProgress,
+) async {
+  throw UnsupportedError('downloadFileWebDirectWithProgress is only available on web platform');
+}
+
 /// Stub for downloadFileNative (when imported by web platform as stub)
 Future<String> downloadFileNative(String url, String token, String fileName) async {
   throw UnsupportedError('downloadFileNative is not available on web platform');
+}
+
+/// Stub for downloadFileNativeWithProgress (when imported by web platform as stub)
+Future<String> downloadFileNativeWithProgress(
+  String url,
+  String token,
+  String fileName,
+  Function(double progress) onProgress,
+) async {
+  throw UnsupportedError('downloadFileNativeWithProgress is not available on web platform');
 }
 
 /// Stub for openDownloadDirectory (when imported by web platform as stub)
