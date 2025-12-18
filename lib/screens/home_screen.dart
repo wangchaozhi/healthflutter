@@ -287,6 +287,13 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('健康管理'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.video_library),
+            onPressed: () {
+              Navigator.of(context).pushNamed('/douyin');
+            },
+            tooltip: '抖音解析工具',
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logoutDebounce.canExecute ? _handleLogout : null,
             tooltip: '退出登录',
@@ -641,6 +648,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               Row(
                                 children: [
                                   Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: _closeForm,
+                                      child: const Text('取消'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
                                     child: ElevatedButton(
                                       onPressed: _submitDebounce.canExecute ? _submitRecord : null,
                                       child: !_submitDebounce.canExecute
@@ -650,13 +664,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                               child: CircularProgressIndicator(strokeWidth: 2),
                                             )
                                           : const Text('确定'),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: OutlinedButton(
-                                      onPressed: _closeForm,
-                                      child: const Text('取消'),
                                     ),
                                   ),
                                 ],

@@ -234,5 +234,60 @@ class ApiService {
       return {'success': false, 'message': '网络错误: $e'};
     }
   }
+  
+  // 抖音解析
+  static Future<Map<String, dynamic>> douyinParsing(String text) async {
+    try {
+      final token = await getToken();
+      if (token == null) {
+        return {'success': false, 'message': '未登录'};
+      }
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/douyin/parsing'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'text': text}),
+      );
+      
+      return jsonDecode(utf8.decode(response.bodyBytes));
+    } catch (e) {
+      return {'success': false, 'message': '网络错误: $e'};
+    }
+  }
+  
+  // 获取抖音文件列表
+  static Future<Map<String, dynamic>> getDouyinFileList() async {
+    try {
+      final token = await getToken();
+      if (token == null) {
+        return {'success': false, 'message': '未登录'};
+      }
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/douyin/files'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      return jsonDecode(utf8.decode(response.bodyBytes));
+    } catch (e) {
+      return {'success': false, 'message': '网络错误: $e'};
+    }
+  }
+  
+  // 获取下载URL（用于直接下载）
+  static Future<String> getDownloadUrl(int id) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('未登录');
+    }
+    // 返回带token的下载URL
+    return '$baseUrl/douyin/download?id=$id';
+  }
 }
 

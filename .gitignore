@@ -85,6 +85,7 @@ backend/.idea/
 backend/health_server
 backend/health_server.exe
 backend/*.exe
+backend/Download/
 
 # Environment variables
 .env

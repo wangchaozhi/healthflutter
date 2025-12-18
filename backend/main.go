@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite"
+	"backend/database"
+	"backend/handlers"
 	"golang.org/x/crypto/bcrypt"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var db *sql.DB
 var jwtSecret = []byte("your-secret-key-change-in-production")
 
 type User struct {
@@ -81,46 +80,9 @@ type ActivityStats struct {
 }
 
 func initDB() {
-	var err error
-	db, err = sql.Open("sqlite", "./health.db")
-	if err != nil {
-		log.Fatal("无法打开数据库:", err)
+	if err := database.InitDB("./health.db"); err != nil {
+		log.Fatal("数据库初始化失败:", err)
 	}
-
-	// 创建用户表
-	createUserTableSQL := `
-	CREATE TABLE IF NOT EXISTS users (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		username TEXT UNIQUE NOT NULL,
-		password TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);`
-
-	_, err = db.Exec(createUserTableSQL)
-	if err != nil {
-		log.Fatal("无法创建用户表:", err)
-	}
-
-	// 创建健康活动记录表
-	createActivityTableSQL := `
-	CREATE TABLE IF NOT EXISTS health_activities (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		user_id INTEGER NOT NULL,
-		record_date TEXT NOT NULL,
-		record_time TEXT NOT NULL,
-		week_day TEXT NOT NULL,
-		duration INTEGER NOT NULL,
-		remark TEXT,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY (user_id) REFERENCES users(id)
-	);`
-
-	_, err = db.Exec(createActivityTableSQL)
-	if err != nil {
-		log.Fatal("无法创建健康活动表:", err)
-	}
-
-	log.Println("数据库初始化成功")
 }
 
 func hashPassword(password string) (string, error) {
@@ -178,7 +140,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 检查用户名是否已存在
 	var existingID int
-	err := db.QueryRow("SELECT id FROM users WHERE username = ?", req.Username).Scan(&existingID)
+	err := database.DB.QueryRow("SELECT id FROM users WHERE username = ?", req.Username).Scan(&existingID)
 	if err == nil {
 		json.NewEncoder(w).Encode(AuthResponse{
 			Success: false,
@@ -195,7 +157,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 插入新用户
-	result, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", req.Username, hashedPassword)
+	result, err := database.DB.Exec("INSERT INTO users (username, password) VALUES (?, ?)", req.Username, hashedPassword)
 	if err != nil {
 		http.Error(w, "注册失败", http.StatusInternalServerError)
 		return
@@ -246,7 +208,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	// 查询用户
 	var userID int
 	var hashedPassword string
-	err := db.QueryRow("SELECT id, password FROM users WHERE username = ?", req.Username).Scan(&userID, &hashedPassword)
+	err := database.DB.QueryRow("SELECT id, password FROM users WHERE username = ?", req.Username).Scan(&userID, &hashedPassword)
 	if err != nil {
 		json.NewEncoder(w).Encode(AuthResponse{
 			Success: false,
@@ -331,7 +293,7 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
 
 	var user User
-	err := db.QueryRow("SELECT id, username FROM users WHERE id = ?", userID).Scan(&user.ID, &user.Username)
+	err := database.DB.QueryRow("SELECT id, username FROM users WHERE id = ?", userID).Scan(&user.ID, &user.Username)
 	if err != nil {
 		http.Error(w, "用户不存在", http.StatusNotFound)
 		return
@@ -404,7 +366,7 @@ func createActivityHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Sscanf(userID, "%d", &userIDInt)
 
 	// 插入记录
-	result, err := db.Exec(
+	result, err := database.DB.Exec(
 		"INSERT INTO health_activities (user_id, record_date, record_time, week_day, duration, remark) VALUES (?, ?, ?, ?, ?, ?)",
 		userIDInt, req.RecordDate, req.RecordTime, weekDay, req.Duration, req.Remark,
 	)
@@ -450,7 +412,7 @@ func listActivitiesHandler(w http.ResponseWriter, r *http.Request) {
 	var userIDInt int
 	fmt.Sscanf(userID, "%d", &userIDInt)
 
-	rows, err := db.Query(
+	rows, err := database.DB.Query(
 		"SELECT id, user_id, record_date, record_time, week_day, duration, remark, created_at FROM health_activities WHERE user_id = ? ORDER BY record_date DESC, record_time DESC LIMIT 10",
 		userIDInt,
 	)
@@ -515,7 +477,7 @@ func deleteActivityHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 验证记录是否属于当前用户
 	var ownerID int
-	err := db.QueryRow("SELECT user_id FROM health_activities WHERE id = ?", activityID).Scan(&ownerID)
+	err := database.DB.QueryRow("SELECT user_id FROM health_activities WHERE id = ?", activityID).Scan(&ownerID)
 	if err != nil {
 		json.NewEncoder(w).Encode(ActivityResponse{
 			Success: false,
@@ -530,7 +492,7 @@ func deleteActivityHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 删除记录
-	_, err = db.Exec("DELETE FROM health_activities WHERE id = ?", activityID)
+	_, err = database.DB.Exec("DELETE FROM health_activities WHERE id = ?", activityID)
 	if err != nil {
 		http.Error(w, "删除失败", http.StatusInternalServerError)
 		return
@@ -565,21 +527,21 @@ func getActivityStatsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 查询总计总数
 	var totalCount int
-	db.QueryRow(
+	database.DB.QueryRow(
 		"SELECT COUNT(*) FROM health_activities WHERE user_id = ?",
 		userIDInt,
 	).Scan(&totalCount)
 
 	// 查询今年总数
 	var yearCount int
-	db.QueryRow(
+	database.DB.QueryRow(
 		"SELECT COUNT(*) FROM health_activities WHERE user_id = ? AND record_date LIKE ?",
 		userIDInt, currentYear+"%",
 	).Scan(&yearCount)
 
 	// 查询本月总数
 	var monthCount int
-	db.QueryRow(
+	database.DB.QueryRow(
 		"SELECT COUNT(*) FROM health_activities WHERE user_id = ? AND record_date LIKE ?",
 		userIDInt, currentMonth+"%",
 	).Scan(&monthCount)
@@ -598,6 +560,7 @@ func getActivityStatsHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -615,7 +578,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 func main() {
 	initDB()
-	defer db.Close()
+	defer database.CloseDB()
 
 	mux := http.NewServeMux()
 
@@ -637,6 +600,10 @@ func main() {
 			http.Error(w, "方法不允许", http.StatusMethodNotAllowed)
 		}
 	})
+	// 抖音解析相关路由
+	mux.HandleFunc("/api/douyin/parsing", authMiddleware(handlers.DouyinParsingHandler))
+	mux.HandleFunc("/api/douyin/files", authMiddleware(handlers.DouyinFileListHandler))
+	mux.HandleFunc("/api/douyin/download", authMiddleware(handlers.DouyinDownloadHandler))
 
 	handler := corsMiddleware(mux)
 
