@@ -27,7 +27,7 @@ func ExtractURL(text string) (string, error) {
 // Linux解析
 func LinuxParsing(url string) (*models.DouyinParsingResponse, error) {
 	// 构建f2命令
-	f2Cmd := fmt.Sprintf("f2 dy -M one -u %s -n {nickname}", url)
+	f2Cmd := fmt.Sprintf("f2 dy -M one -u %s -n {nickname}_{create}", url)
 	// 使用conda run命令，在douyi_download环境中执行
 	cmdStr := fmt.Sprintf("/root/miniconda3/bin/conda run -n douyi_download %s", f2Cmd)
 	cmd := exec.Command("/bin/bash", "-c", cmdStr)
@@ -73,7 +73,7 @@ func LinuxParsing(url string) (*models.DouyinParsingResponse, error) {
 func WindowsParsing(url string) (*models.DouyinParsingResponse, error) {
 	// 直接使用conda命令，假设conda已在PATH中
 	// 构建f2命令，注意引号的处理：在Windows cmd中，外层用单引号或不用引号，内层用双引号
-	f2Cmd := fmt.Sprintf(`f2 dy -M one -u %s -n {nickname}`, url)
+	f2Cmd := fmt.Sprintf(`f2 dy -M one -u %s -n {nickname}_{create}`, url)
 
 	// 使用conda run命令，这是更现代和可靠的方式
 	cmdStr := fmt.Sprintf(`conda run -n douyi_download %s`, f2Cmd)
