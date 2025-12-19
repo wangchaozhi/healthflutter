@@ -262,10 +262,31 @@ jobs:
       - name: Build iOS (no codesign)
         run: flutter build ios --release --no-codesign
 
+      - name: Check iOS build output
+        run: |
+          echo "Checking iOS build directory..."
+          ls -la build/ios/
+          if [ -d "build/ios/iphoneos" ]; then
+            echo "Found iphoneos directory"
+            ls -la build/ios/iphoneos/
+          fi
+          if [ -d "build/ios/Release-iphoneos" ]; then
+            echo "Found Release-iphoneos directory"
+            ls -la build/ios/Release-iphoneos/
+          fi
+
       - name: Package iOS release
         run: |
-          cd build/ios/iphoneos
-          zip -r ../../healthflutter-ios-${{ github.ref_name }}.zip Runner.app
+          if [ -d "build/ios/iphoneos" ]; then
+            cd build/ios/iphoneos
+            zip -r ../../healthflutter-ios-${{ github.ref_name }}.zip Runner.app
+          elif [ -d "build/ios/Release-iphoneos" ]; then
+            cd build/ios/Release-iphoneos
+            zip -r ../../healthflutter-ios-${{ github.ref_name }}.zip Runner.app
+          else
+            echo "Error: Could not find iOS build directory"
+            exit 1
+          fi
 
       - name: Upload iOS artifacts
         uses: actions/upload-artifact@v4
