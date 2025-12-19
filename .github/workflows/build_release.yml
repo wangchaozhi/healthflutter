@@ -40,13 +40,13 @@ jobs:
       - name: Package Linux release
         run: |
           cd build/linux/x64/release/bundle
-          tar -czf ../../../../healthflutter-linux-${GITHUB_REF#refs/tags/}.tar.gz .
+          tar -czf ../../../../healthflutter-linux-${{ github.ref_name }}.tar.gz .
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-release
-          path: build/linux/x64/release/healthflutter-linux-${GITHUB_REF#refs/tags/}.tar.gz
+          path: build/linux/x64/release/healthflutter-linux-${{ github.ref_name }}.tar.gz
           retention-days: 30
 
   build-windows:
@@ -109,13 +109,13 @@ jobs:
       - name: Package Web release
         run: |
           cd build/web
-          tar -czf ../healthflutter-web-${GITHUB_REF#refs/tags/}.tar.gz .
+          tar -czf ../healthflutter-web-${{ github.ref_name }}.tar.gz .
 
       - name: Upload Web artifacts
         uses: actions/upload-artifact@v4
         with:
           name: web-release
-          path: build/healthflutter-web-${GITHUB_REF#refs/tags/}.tar.gz
+          path: build/healthflutter-web-${{ github.ref_name }}.tar.gz
           retention-days: 30
 
   build-android:
@@ -148,13 +148,13 @@ jobs:
 
       - name: Rename APK
         run: |
-          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/healthflutter-android-${GITHUB_REF#refs/tags/}.apk
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/healthflutter-android-${{ github.ref_name }}.apk
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/healthflutter-android-${GITHUB_REF#refs/tags/}.apk
+          path: build/app/outputs/flutter-apk/healthflutter-android-${{ github.ref_name }}.apk
           retention-days: 30
 
   # macOS 和 iOS 需要在 macOS runner 上构建
@@ -231,13 +231,13 @@ jobs:
       - name: Package macOS release
         run: |
           cd build/macos/Build/Products/Release
-          zip -r ../../../../healthflutter-macos-${GITHUB_REF#refs/tags/}.zip healthflutter.app
+          zip -r ../../../../healthflutter-macos-${{ github.ref_name }}.zip healthflutter.app
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-release
-          path: build/macos/Build/Products/Release/healthflutter-macos-${GITHUB_REF#refs/tags/}.zip
+          path: build/macos/Build/Products/Release/healthflutter-macos-${{ github.ref_name }}.zip
           retention-days: 30
 
   build-ios:
@@ -265,13 +265,13 @@ jobs:
       - name: Package iOS release
         run: |
           cd build/ios/iphoneos
-          zip -r ../../healthflutter-ios-${GITHUB_REF#refs/tags/}.zip Runner.app
+          zip -r ../../healthflutter-ios-${{ github.ref_name }}.zip Runner.app
 
       - name: Upload iOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ios-release
-          path: build/ios/healthflutter-ios-${GITHUB_REF#refs/tags/}.zip
+          path: build/ios/healthflutter-ios-${{ github.ref_name }}.zip
           retention-days: 30
 
   # 收集所有构建产物并上传到 Release
