@@ -292,7 +292,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios-release
-          path: build/ios/healthflutter-ios-${{ github.ref_name }}.zip
+          path: build/healthflutter-ios-${{ github.ref_name }}.zip
           retention-days: 30
 
   # 收集所有构建产物并上传到 Release
