@@ -63,6 +63,11 @@ func InitDB(dbPath string) error {
 		return err
 	}
 
+	// 初始化音乐分享表
+	if err := InitMusicShareTable(); err != nil {
+		return err
+	}
+
 	log.Println("数据库初始化成功")
 	return nil
 }

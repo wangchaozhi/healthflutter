@@ -6,6 +6,8 @@ import 'screens/home_screen.dart';
 import 'screens/douyin_parser_screen.dart';
 import 'screens/file_transfer_screen.dart';
 import 'screens/music_player_screen.dart';
+import 'screens/music_share_screen.dart';
+import 'screens/shared_music_player_screen.dart';
 import 'services/api_service.dart';
 
 void main() {
@@ -42,6 +44,17 @@ class MyApp extends StatelessWidget {
         '/douyin': (context) => const DouyinParserScreen(),
         '/file_transfer': (context) => const FileTransferScreen(),
         '/music_player': (context) => const MusicPlayerScreen(),
+        '/music_shares': (context) => const MusicShareScreen(),
+      },
+      onGenerateRoute: (settings) {
+        // 处理动态路由，如 /share/:token
+        if (settings.name != null && settings.name!.startsWith('/share/')) {
+          final token = settings.name!.substring(7); // 去掉 '/share/' 前缀
+          return MaterialPageRoute(
+            builder: (context) => SharedMusicPlayerScreen(shareToken: token),
+          );
+        }
+        return null;
       },
     );
   }

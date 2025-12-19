@@ -557,6 +557,16 @@ func main() {
 	// stream 路由不使用 authMiddleware，因为它从 URL 参数获取 token
 	mux.HandleFunc("/api/music/stream", handlers.MusicStreamHandler)
 
+	// 音乐分享相关路由
+	mux.HandleFunc("/api/music/share/create", authMiddleware(handlers.CreateMusicShareHandler))
+	mux.HandleFunc("/api/music/share/list", authMiddleware(handlers.GetUserSharesHandler))
+	mux.HandleFunc("/api/music/share/delete", authMiddleware(handlers.DeleteMusicShareHandler))
+	// 公开分享路由（无需认证）
+	mux.HandleFunc("/api/music/share/detail", handlers.GetSharedMusicHandler)
+	mux.HandleFunc("/api/music/share/stream", handlers.StreamSharedMusicHandler)
+	// Web 播放页面路由（浏览器直接访问）
+	mux.HandleFunc("/share/", handlers.ShareWebPlayerHandler)
+
 	handler := corsMiddleware(mux)
 
 	port := os.Getenv("PORT")

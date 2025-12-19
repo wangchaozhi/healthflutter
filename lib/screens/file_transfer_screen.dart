@@ -169,6 +169,22 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           }
         }
       },
+      onStart: () {
+        // 显示上传 loading
+        if (mounted) {
+          setState(() {
+            _isUploading = true;
+          });
+        }
+      },
+      onEnd: () {
+        // 隐藏上传 loading
+        if (mounted) {
+          setState(() {
+            _isUploading = false;
+          });
+        }
+      },
     );
   }
 
@@ -219,6 +235,22 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
               SnackBar(content: Text('上传失败: $e')),
             );
           }
+        }
+      },
+      onStart: () {
+        // 显示上传 loading
+        if (mounted) {
+          setState(() {
+            _isUploading = true;
+          });
+        }
+      },
+      onEnd: () {
+        // 隐藏上传 loading
+        if (mounted) {
+          setState(() {
+            _isUploading = false;
+          });
         }
       },
     );
