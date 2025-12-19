@@ -14,6 +14,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -27,11 +32,16 @@ jobs:
       - name: Build Linux
         run: flutter build linux --release
 
+      - name: Package Linux release
+        run: |
+          cd build/linux/x64/release/bundle
+          tar -czf ../../../../healthflutter-linux-${GITHUB_REF#refs/tags/}.tar.gz .
+
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-release
-          path: build/linux/x64/release/bundle/
+          path: build/linux/x64/release/healthflutter-linux-${GITHUB_REF#refs/tags/}.tar.gz
           retention-days: 30
 
   build-windows:
@@ -54,11 +64,17 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release
 
+      - name: Package Windows release
+        shell: powershell
+        run: |
+          $tag = $env:GITHUB_REF -replace 'refs/tags/', ''
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath "build/windows/healthflutter-windows-$tag.zip" -Force
+
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-release
-          path: build/windows/x64/runner/Release/
+          path: build/windows/healthflutter-windows-*.zip
           retention-days: 30
 
   build-web:
@@ -81,11 +97,16 @@ jobs:
       - name: Build Web
         run: flutter build web --release
 
+      - name: Package Web release
+        run: |
+          cd build/web
+          tar -czf ../healthflutter-web-${GITHUB_REF#refs/tags/}.tar.gz .
+
       - name: Upload Web artifacts
         uses: actions/upload-artifact@v4
         with:
           name: web-release
-          path: build/web/
+          path: build/healthflutter-web-${GITHUB_REF#refs/tags/}.tar.gz
           retention-days: 30
 
   build-android:
@@ -114,11 +135,15 @@ jobs:
       - name: Build Android APK
         run: flutter build apk --release
 
+      - name: Rename APK
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/healthflutter-android-${GITHUB_REF#refs/tags/}.apk
+
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/healthflutter-android-${GITHUB_REF#refs/tags/}.apk
           retention-days: 30
 
   # macOS 和 iOS 需要在 macOS runner 上构建
@@ -142,11 +167,16 @@ jobs:
       - name: Build macOS
         run: flutter build macos --release
 
+      - name: Package macOS release
+        run: |
+          cd build/macos/Build/Products/Release
+          zip -r ../../../../healthflutter-macos-${GITHUB_REF#refs/tags/}.zip healthflutter.app
+
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-release
-          path: build/macos/Build/Products/Release/
+          path: build/macos/Build/Products/Release/healthflutter-macos-${GITHUB_REF#refs/tags/}.zip
           retention-days: 30
 
   build-ios:
@@ -169,9 +199,49 @@ jobs:
       - name: Build iOS (no codesign)
         run: flutter build ios --release --no-codesign
 
+      - name: Package iOS release
+        run: |
+          cd build/ios/iphoneos
+          zip -r ../../healthflutter-ios-${GITHUB_REF#refs/tags/}.zip Runner.app
+
       - name: Upload iOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ios-release
-          path: build/ios/iphoneos/Runner.app
+          path: build/ios/healthflutter-ios-${GITHUB_REF#refs/tags/}.zip
           retention-days: 30
+
+  # 收集所有构建产物并上传到 Release
+  release:
+    name: Create Release
+    needs: [build-linux, build-windows, build-web, build-android, build-macos, build-ios]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    continue-on-error: true
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release-artifacts/**/*
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## Release ${{ github.ref_name }}
+            
+            ### Downloads
+            - **Linux**: `healthflutter-linux-${{ github.ref_name }}.tar.gz`
+            - **Windows**: `healthflutter-windows-${{ github.ref_name }}.zip`
+            - **Web**: `healthflutter-web-${{ github.ref_name }}.tar.gz`
+            - **Android**: `healthflutter-android-${{ github.ref_name }}.apk`
+            - **macOS**: `healthflutter-macos-${{ github.ref_name }}.zip`
+            - **iOS**: `healthflutter-ios-${{ github.ref_name }}.zip`
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
