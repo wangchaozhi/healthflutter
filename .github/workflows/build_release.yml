@@ -46,7 +46,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-release
-          path: build/linux/x64/release/healthflutter-linux-${{ github.ref_name }}.tar.gz
+          path: build/healthflutter-linux-${{ github.ref_name }}.tar.gz
           retention-days: 30
 
   build-windows:
@@ -237,7 +237,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-release
-          path: build/macos/Build/Products/Release/healthflutter-macos-${{ github.ref_name }}.zip
+          path: build/healthflutter-macos-${{ github.ref_name }}.zip
           retention-days: 30
 
   build-ios:
