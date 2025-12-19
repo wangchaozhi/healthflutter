@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'  # 触发所有以 v 开头的标签
 
+permissions:
+  contents: write  # 允许创建 Release 和上传文件
+
 jobs:
   # Linux, Windows, Web, Android 在 Ubuntu runner 上构建
   build-linux:
