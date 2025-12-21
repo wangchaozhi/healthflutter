@@ -128,73 +128,125 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
         type: FileType.custom,
         allowedExtensions: ['lrc', 'txt'],
         allowMultiple: false,
+        withData: true, // 确保读取文件数据（Web和移动端都支持）
+        withReadStream: false, // 不使用流，直接读取数据
       );
 
-      if (result != null) {
-        final token = await ApiService.getToken();
-        if (token == null) {
+      if (result == null || result.files.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _isUploading = false;
+          });
+        }
+        return;
+      }
+
+      final pickedFile = result.files.single;
+      final token = await ApiService.getToken();
+      if (token == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('未登录，请先登录')),
+          );
+          setState(() {
+            _isUploading = false;
+          });
+        }
+        return;
+      }
+
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${ApiConfig.baseUrl}/lyrics/upload'),
+      );
+      request.headers['Authorization'] = 'Bearer $token';
+      
+      // 添加文件 - 优先使用 bytes（Web 和移动端都支持）
+      http.MultipartFile multipartFile;
+      
+      if (pickedFile.bytes != null) {
+        // 使用 bytes（Web 和移动端都支持）
+        multipartFile = http.MultipartFile.fromBytes(
+          'file',
+          pickedFile.bytes!,
+          filename: pickedFile.name,
+        );
+      } else if (pickedFile.path != null) {
+        // 移动端：使用路径读取文件
+        try {
+          multipartFile = await http.MultipartFile.fromPath(
+            'file',
+            pickedFile.path!,
+            filename: pickedFile.name,
+          );
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('读取文件失败: $e')),
+            );
+            setState(() {
+              _isUploading = false;
+            });
+          }
           return;
         }
-
-        var request = http.MultipartRequest(
-          'POST',
-          Uri.parse('${ApiConfig.baseUrl}/lyrics/upload'),
-        );
-        request.headers['Authorization'] = 'Bearer $token';
-        
-        // 添加文件
-        if (result.files.single.bytes != null) {
-          request.files.add(
-            http.MultipartFile.fromBytes(
-              'file',
-              result.files.single.bytes!,
-              filename: result.files.single.name,
-            ),
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('无法读取文件，请重试')),
           );
-        } else if (result.files.single.path != null) {
-          request.files.add(
-            await http.MultipartFile.fromPath('file', result.files.single.path!),
-          );
+          setState(() {
+            _isUploading = false;
+          });
         }
+        return;
+      }
+      
+      request.files.add(multipartFile);
 
-        // 添加元数据
-        request.fields['title'] = widget.musicTitle;
-        request.fields['artist'] = widget.musicArtist;
-        request.fields['music_id'] = widget.musicId.toString();
+      // 添加元数据
+      request.fields['title'] = widget.musicTitle;
+      request.fields['artist'] = widget.musicArtist;
+      request.fields['music_id'] = widget.musicId.toString();
 
-        var streamedResponse = await request.send();
-        var response = await http.Response.fromStream(streamedResponse);
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
 
-        if (response.statusCode == 200) {
-          final data = jsonDecode(utf8.decode(response.bodyBytes));
-          if (data['success'] == true) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('上传并绑定成功')),
-              );
-              // 通知歌词已变化
-              widget.onLyricsChanged?.call();
-              Navigator.pop(context);
-            }
-          } else {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(data['message'] ?? '上传失败')),
-              );
-            }
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (data['success'] == true) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('上传并绑定成功')),
+            );
+            // 通知歌词已变化
+            widget.onLyricsChanged?.call();
+            Navigator.pop(context);
           }
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('上传失败: ${response.statusCode}')),
+              SnackBar(content: Text(data['message'] ?? '上传失败')),
             );
           }
         }
+      } else {
+        final errorBody = utf8.decode(response.bodyBytes);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('上传失败: ${response.statusCode}\n$errorBody')),
+          );
+        }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('上传歌词文件错误: $e');
+      debugPrint('堆栈跟踪: $stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('上传失败: $e')),
+          SnackBar(
+            content: Text('上传失败: ${e.toString()}'),
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     } finally {
