@@ -312,11 +312,13 @@ func ShareWebPlayerHandler(w http.ResponseWriter, r *http.Request) {
 		Artist    string
 		Album     string
 		StreamURL string
+		MusicID   int
 	}{
 		Title:     music.Title,
 		Artist:    music.Artist,
 		Album:     music.Album,
 		StreamURL: "/api/music/share/stream?token=" + token,
+		MusicID:   music.ID,
 	}
 
 	// 解析并渲染模板

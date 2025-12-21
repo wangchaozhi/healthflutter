@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+import '../services/music_player_service.dart';
 import '../utils/debounce.dart';
 import 'login_screen.dart';
 
@@ -257,7 +258,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _handleLogout() async {
     await _logoutDebounce.execute(
       action: () async {
+        // 停止并重置播放器
+        final playerService = MusicPlayerService();
+        await playerService.stopAndReset();
+        
+        // 退出登录
         await ApiService.logout();
+        
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const LoginScreen()),

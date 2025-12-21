@@ -170,7 +170,7 @@ func GetMusicByID(id, userID int) (*models.Music, error) {
 	return &music, nil
 }
 
-// DeleteMusic 删除音乐记录
+// DeleteMusic 删除音乐记录（同时删除歌词绑定记录）
 func DeleteMusic(id, userID int) error {
 	// 先获取文件路径
 	var filePath string
@@ -180,27 +180,48 @@ func DeleteMusic(id, userID int) error {
 		return err
 	}
 	
-	// 先删除物理文件
+	// 开始事务
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	
+	// 1. 删除歌词绑定记录
+	_, err = tx.Exec("DELETE FROM music_lyrics_binding WHERE music_id = ?", id)
+	if err != nil {
+		log.Printf("删除歌词绑定记录失败: %v", err)
+		return err
+	}
+	log.Printf("歌词绑定记录删除成功: music_id=%d", id)
+	
+	// 2. 删除数据库记录
+	_, err = tx.Exec("DELETE FROM music WHERE id = ? AND user_id = ?", id, userID)
+	if err != nil {
+		log.Printf("删除音乐记录失败: %v", err)
+		return err
+	}
+	
+	// 提交事务
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	
+	// 3. 删除物理文件（在事务外执行，即使失败也不影响数据库一致性）
 	if _, err := os.Stat(filePath); err == nil {
 		if err := os.Remove(filePath); err != nil {
 			log.Printf("删除音乐文件失败: %v", err)
-			return err
+			// 不返回错误，允许继续
+		} else {
+			log.Printf("音乐文件删除成功: %s", filePath)
 		}
-		log.Printf("音乐文件删除成功: %s", filePath)
 	}
 	
-	// 删除封面图片（如果有）
+	// 4. 删除封面图片（如果有）
 	if coverPath != "" {
 		if _, err := os.Stat(coverPath); err == nil {
 			os.Remove(coverPath)
 		}
-	}
-	
-	// 删除数据库记录
-	_, err = DB.Exec("DELETE FROM music WHERE id = ? AND user_id = ?", id, userID)
-	if err != nil {
-		log.Printf("删除音乐记录失败: %v", err)
-		return err
 	}
 	
 	log.Printf("音乐记录删除成功: id=%d, user_id=%d", id, userID)

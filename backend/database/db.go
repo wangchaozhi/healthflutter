@@ -68,6 +68,11 @@ func InitDB(dbPath string) error {
 		return err
 	}
 
+	// 初始化歌词表
+	if err := InitLyricsTable(); err != nil {
+		return err
+	}
+
 	log.Println("数据库初始化成功")
 	return nil
 }

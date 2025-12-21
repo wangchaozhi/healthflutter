@@ -6,10 +6,13 @@ import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import '../config/api_config.dart';
 import '../services/api_service.dart';
 import '../services/music_player_service.dart';
 import '../utils/debounce.dart';
+import '../widgets/lyrics_manage_dialog.dart';
+import 'lyrics_detail_screen.dart';
 
 class MusicPlayerScreen extends StatefulWidget {
   const MusicPlayerScreen({super.key});
@@ -37,6 +40,9 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
   // 搜索
   final TextEditingController _searchController = TextEditingController();
   String _searchKeyword = '';
+
+  // 歌词相关
+  String? _currentLyrics; // 当前歌曲的歌词内容
 
   @override
   void initState() {
@@ -378,9 +384,31 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
     }
   }
 
-  // 删除音乐
+  // 删除音乐（添加确认对话框）
   Future<void> _deleteMusic(int musicId) async {
     if (!_deleteDebounce.canExecute) return;
+
+    // 显示确认对话框
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认删除'),
+        content: const Text('确定要删除这首音乐吗？删除后无法恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
 
     await _deleteDebounce.execute(
       action: () async {
@@ -438,7 +466,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
   }
 
   // 播放音乐
-  Future<void> _playMusic(int musicId) async {
+  Future<void> _playMusic(int musicId, {bool forceReplay = false}) async {
     try {
       final token = await ApiService.getToken();
       if (token == null) {
@@ -462,7 +490,11 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         streamUrl: streamUrl,
         title: music['title'] ?? '未知',
         artist: music['artist'] ?? '未知艺术家',
+        forceReplay: forceReplay,
       );
+      
+      // 加载歌词
+      await _loadLyrics(musicId);
     } catch (e) {
       debugPrint('播放失败: $e');
       if (mounted) {
@@ -502,7 +534,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         } else {
           // 循环到最后一首
           debugPrint('🎵 循环到最后一首');
-          await _playMusic(_musicList[_musicList.length - 1]['id']);
+          await _playMusic(_musicList[_musicList.length - 1]['id'], forceReplay: _musicList.length == 1);
         }
         break;
       case PlayMode.shuffle:
@@ -516,7 +548,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
             nextIndex = random.nextInt(_musicList.length);
           } while (nextIndex == currentIndex);
         }
-        await _playMusic(_musicList[nextIndex]['id']);
+        await _playMusic(_musicList[nextIndex]['id'], forceReplay: _musicList.length == 1);
         break;
       case PlayMode.repeat:
         // 单曲循环：播放上一首
@@ -524,7 +556,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
           await _playMusic(_musicList[currentIndex - 1]['id']);
         } else {
           // 循环到最后一首
-          await _playMusic(_musicList[_musicList.length - 1]['id']);
+          await _playMusic(_musicList[_musicList.length - 1]['id'], forceReplay: _musicList.length == 1);
         }
         break;
     }
@@ -545,7 +577,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         } else {
           // 循环到第一首
           debugPrint('🎵 循环到第一首');
-          await _playMusic(_musicList[0]['id']);
+          await _playMusic(_musicList[0]['id'], forceReplay: _musicList.length == 1);
         }
         break;
       case PlayMode.shuffle:
@@ -559,7 +591,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
             nextIndex = random.nextInt(_musicList.length);
           } while (nextIndex == currentIndex);
         }
-        await _playMusic(_musicList[nextIndex]['id']);
+        await _playMusic(_musicList[nextIndex]['id'], forceReplay: _musicList.length == 1);
         break;
       case PlayMode.repeat:
         // 单曲循环（这里是手动点击下一首，所以还是播放下一首）
@@ -567,10 +599,104 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
           await _playMusic(_musicList[currentIndex + 1]['id']);
         } else {
           // 循环到第一首
-          await _playMusic(_musicList[0]['id']);
+          await _playMusic(_musicList[0]['id'], forceReplay: _musicList.length == 1);
         }
         break;
     }
+  }
+
+  // 加载歌词
+  Future<void> _loadLyrics(int musicId) async {
+    try {
+      final token = await ApiService.getToken();
+      if (token == null) return;
+
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/lyrics/get?music_id=$musicId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (data['success'] == true && data['lyrics'] != null) {
+          setState(() {
+            _currentLyrics = data['lyrics']['content'];
+          });
+        } else {
+          setState(() {
+            _currentLyrics = null;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('加载歌词失败: $e');
+      setState(() {
+        _currentLyrics = null;
+      });
+    }
+  }
+
+  // 显示歌词管理对话框
+  void _showLyricsManageDialog() {
+    if (_playerService.currentPlayingId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先播放歌曲')),
+      );
+      return;
+    }
+
+    final music = _musicList.firstWhere(
+      (m) => m['id'] == _playerService.currentPlayingId,
+      orElse: () => {'title': '未知', 'artist': '未知艺术家'},
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => LyricsManageDialog(
+        musicId: _playerService.currentPlayingId!,
+        musicTitle: music['title'] ?? '未知',
+        musicArtist: music['artist'] ?? '未知艺术家',
+        onLyricsChanged: () {
+          // 重新加载歌词
+          _loadLyrics(_playerService.currentPlayingId!);
+        },
+      ),
+    );
+  }
+
+  // 打开歌词特写页面
+  void _openLyricsDetailScreen() {
+    if (_playerService.currentPlayingId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先播放歌曲')),
+      );
+      return;
+    }
+
+    final music = _musicList.firstWhere(
+      (m) => m['id'] == _playerService.currentPlayingId,
+      orElse: () => {'title': '未知', 'artist': '未知艺术家'},
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LyricsDetailScreen(
+          musicId: _playerService.currentPlayingId!,
+          musicTitle: music['title'] ?? '未知',
+          musicArtist: music['artist'] ?? '未知艺术家',
+          lyricsContent: _currentLyrics,
+          onLyricsChanged: () {
+            // 重新加载歌词
+            _loadLyrics(_playerService.currentPlayingId!);
+          },
+          onPlayNext: _playNext,
+          onPlayPrevious: _playPrevious,
+        ),
+      ),
+    );
   }
 
   @override
@@ -684,49 +810,49 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                             final music = _musicList[index];
                             final isCurrentPlaying = _playerService.currentPlayingId == music['id'];
                             
-                            return Card(
-                              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              color: isCurrentPlaying ? Colors.blue[50] : null,
-                              child: ListTile(
-                                leading: Icon(
-                                  isCurrentPlaying && _playerService.isPlaying
-                                      ? Icons.music_note
-                                      : Icons.music_note_outlined,
-                                  color: isCurrentPlaying ? Colors.blue : Colors.grey,
-                                  size: 40,
-                                ),
-                                title: Text(
-                                  music['title'] ?? '未知标题',
-                                  style: TextStyle(
-                                    fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.normal,
+                            return Slidable(
+                              key: ValueKey(music['id']),
+                              endActionPane: ActionPane(
+                                motion: const ScrollMotion(),
+                                extentRatio: 0.2, // 减小滑动区域宽度
+                                children: [
+                                  SlidableAction(
+                                    onPressed: (context) => _deleteMusic(music['id']),
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                    icon: Icons.delete,
+                                    label: '删除',
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
                                   ),
-                                ),
-                                subtitle: Text(
-                                  '${music['artist'] ?? '未知艺术家'} • ${music['file_size_str'] ?? ''}',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(
-                                        isCurrentPlaying && _playerService.isPlaying
-                                            ? Icons.pause_circle
-                                            : Icons.play_circle,
-                                        color: Colors.blue,
-                                      ),
-                                      onPressed: () => _playMusic(music['id']),
+                                ],
+                              ),
+                              child: Card(
+                                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                color: isCurrentPlaying ? Colors.blue[50] : null,
+                                child: ListTile(
+                                  leading: Icon(
+                                    isCurrentPlaying && _playerService.isPlaying
+                                        ? Icons.music_note
+                                        : Icons.music_note_outlined,
+                                    color: isCurrentPlaying ? Colors.blue : Colors.grey,
+                                    size: 40,
+                                  ),
+                                  title: Text(
+                                    music['title'] ?? '未知标题',
+                                    style: TextStyle(
+                                      fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.normal,
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.share, color: Colors.green),
-                                      onPressed: () => _shareMusic(music['id']),
-                                      tooltip: '分享',
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.red),
-                                      onPressed: () => _deleteMusic(music['id']),
-                                    ),
-                                  ],
+                                  ),
+                                  subtitle: Text(
+                                    '${music['artist'] ?? '未知艺术家'} • ${music['file_size_str'] ?? ''}',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.share, color: Colors.green),
+                                    onPressed: () => _shareMusic(music['id']),
+                                    tooltip: '分享',
+                                  ),
+                                  onTap: () => _playMusic(music['id']),
                                 ),
                               ),
                             );
@@ -752,14 +878,35 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // 当前播放歌曲
-                        Text(
-                          _playerService.currentTitle ?? '未知',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _playerService.currentTitle ?? '未知',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            // 歌词按钮
+                            IconButton(
+                              icon: Icon(
+                                _currentLyrics != null ? Icons.lyrics : Icons.lyrics_outlined,
+                                color: _currentLyrics != null ? Colors.blue : Colors.grey,
+                              ),
+                              onPressed: _openLyricsDetailScreen,
+                              tooltip: '歌词',
+                            ),
+                            // 歌词管理按钮
+                            IconButton(
+                              icon: const Icon(Icons.edit_note),
+                              onPressed: _showLyricsManageDialog,
+                              tooltip: '管理歌词',
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                         

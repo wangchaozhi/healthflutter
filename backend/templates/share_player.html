@@ -72,6 +72,53 @@
             color: #999;
         }
         
+        .lyrics-container {
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 20px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 12px;
+            text-align: center;
+            scrollbar-width: thin;
+            scrollbar-color: #667eea #f0f0f0;
+        }
+        
+        .lyrics-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .lyrics-container::-webkit-scrollbar-track {
+            background: #f0f0f0;
+            border-radius: 3px;
+        }
+        
+        .lyrics-container::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 3px;
+        }
+        
+        .lyrics-line {
+            padding: 8px 0;
+            font-size: 16px;
+            color: #999;
+            transition: all 0.3s;
+            line-height: 1.6;
+        }
+        
+        .lyrics-line.active {
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+            transform: scale(1.05);
+        }
+        
+        .no-lyrics {
+            color: #999;
+            font-size: 14px;
+            padding: 40px 20px;
+        }
+        
         .player-controls {
             margin: 30px 0;
         }
@@ -180,6 +227,10 @@
             {{if .Album}}<div class="album">{{.Album}}</div>{{end}}
         </div>
         
+        <div class="lyrics-container" id="lyricsContainer">
+            <div class="no-lyrics" id="noLyrics">暂无歌词</div>
+        </div>
+        
         <div class="player-controls">
             <div class="time-info">
                 <span id="currentTime">0:00</span>
@@ -222,6 +273,12 @@
         const currentTimeEl = document.getElementById('currentTime');
         const durationEl = document.getElementById('duration');
         const errorMessage = document.getElementById('errorMessage');
+        const lyricsContainer = document.getElementById('lyricsContainer');
+        const noLyrics = document.getElementById('noLyrics');
+        
+        // 歌词数据
+        let lyricsData = [];
+        let currentLyricIndex = -1;
         
         // 格式化时间
         function formatTime(seconds) {
@@ -229,6 +286,94 @@
             const secs = Math.floor(seconds % 60);
             return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
+        
+        // 解析LRC歌词
+        function parseLyrics(lrcContent) {
+            const lines = lrcContent.split('\n');
+            const lyrics = [];
+            const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+            
+            for (let line of lines) {
+                const match = line.match(timeRegex);
+                if (match) {
+                    const minutes = parseInt(match[1]);
+                    const seconds = parseInt(match[2]);
+                    const milliseconds = parseInt(match[3].padEnd(3, '0'));
+                    const time = minutes * 60 + seconds + milliseconds / 1000;
+                    
+                    const text = line.replace(timeRegex, '').trim();
+                    if (text) {
+                        lyrics.push({ time, text });
+                    }
+                }
+            }
+            
+            return lyrics.sort((a, b) => a.time - b.time);
+        }
+        
+        // 渲染歌词
+        function renderLyrics(lyrics) {
+            if (lyrics.length === 0) {
+                noLyrics.style.display = 'block';
+                return;
+            }
+            
+            noLyrics.style.display = 'none';
+            lyricsContainer.innerHTML = lyrics.map((lyric, index) => 
+                `<div class="lyrics-line" data-index="${index}" data-time="${lyric.time}">${lyric.text}</div>`
+            ).join('');
+        }
+        
+        // 更新当前歌词
+        function updateCurrentLyric() {
+            if (lyricsData.length === 0) return;
+            
+            const currentTime = audio.currentTime;
+            let newIndex = -1;
+            
+            for (let i = 0; i < lyricsData.length; i++) {
+                if (lyricsData[i].time <= currentTime) {
+                    newIndex = i;
+                } else {
+                    break;
+                }
+            }
+            
+            if (newIndex !== currentLyricIndex) {
+                currentLyricIndex = newIndex;
+                
+                // 更新样式
+                const allLines = lyricsContainer.querySelectorAll('.lyrics-line');
+                allLines.forEach((line, index) => {
+                    if (index === currentLyricIndex) {
+                        line.classList.add('active');
+                        // 滚动到当前歌词
+                        line.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        line.classList.remove('active');
+                    }
+                });
+            }
+        }
+        
+        // 加载歌词
+        async function loadLyrics() {
+            try {
+                const musicId = {{.MusicID}};
+                const response = await fetch(`/api/lyrics/get?music_id=${musicId}`);
+                const data = await response.json();
+                
+                if (data.success && data.lyrics && data.lyrics.content) {
+                    lyricsData = parseLyrics(data.lyrics.content);
+                    renderLyrics(lyricsData);
+                }
+            } catch (err) {
+                console.log('加载歌词失败:', err);
+            }
+        }
+        
+        // 初始化
+        loadLyrics();
         
         // 播放/暂停
         playButton.addEventListener('click', () => {
@@ -259,6 +404,7 @@
             const percent = (audio.currentTime / audio.duration) * 100;
             progress.style.width = percent + '%';
             currentTimeEl.textContent = formatTime(audio.currentTime);
+            updateCurrentLyric();
         });
         
         // 更新总时长

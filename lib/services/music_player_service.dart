@@ -94,17 +94,18 @@ class MusicPlayerService extends ChangeNotifier {
     required String streamUrl,
     String? title,
     String? artist,
+    bool forceReplay = false, // 新增参数：强制重新播放
   }) async {
     try {
-      if (_currentPlayingId == musicId) {
-        // 同一首歌，切换播放/暂停
+      if (_currentPlayingId == musicId && !forceReplay) {
+        // 同一首歌且不强制重播，切换播放/暂停
         if (_isPlaying) {
           await pause();
         } else {
           await resume();
         }
       } else {
-        // 播放新歌曲
+        // 播放新歌曲或强制重新播放
         _currentPlayingId = musicId;
         _currentTitle = title;
         _currentArtist = artist;
@@ -283,6 +284,27 @@ class MusicPlayerService extends ChangeNotifier {
       debugPrint('✅ 单曲循环：重新播放成功');
     } catch (e) {
       debugPrint('❌ 单曲循环重新播放失败: $e');
+    }
+  }
+  
+  // 停止并重置播放器（用于退出登录等场景）
+  Future<void> stopAndReset() async {
+    try {
+      await _audioPlayer.stop();
+      _currentPlayingId = null;
+      _currentTitle = null;
+      _currentArtist = null;
+      _currentStreamUrl = null;
+      _isPlaying = false;
+      _currentPosition = 0.0;
+      _totalDuration = 0.0;
+      _playlist.clear();
+      _onPlayNext = null;
+      _onPlayPrevious = null;
+      notifyListeners();
+      debugPrint('🎵 播放器已停止并重置');
+    } catch (e) {
+      debugPrint('❌ 停止播放器失败: $e');
     }
   }
   

@@ -567,6 +567,14 @@ func main() {
 	// Web 播放页面路由（浏览器直接访问）
 	mux.HandleFunc("/share/", handlers.ShareWebPlayerHandler)
 
+	// 歌词相关路由
+	mux.HandleFunc("/api/lyrics/upload", authMiddleware(handlers.LyricsUploadHandler))
+	mux.HandleFunc("/api/lyrics/search", authMiddleware(handlers.LyricsSearchHandler))
+	mux.HandleFunc("/api/lyrics/bind", authMiddleware(handlers.LyricsBindHandler))
+	mux.HandleFunc("/api/lyrics/unbind", authMiddleware(handlers.LyricsUnbindHandler)) // 解除绑定
+	mux.HandleFunc("/api/lyrics/get", handlers.LyricsGetByMusicIDHandler) // 公开访问，支持分享页面
+	mux.HandleFunc("/api/lyrics/delete", authMiddleware(handlers.LyricsDeleteHandler))
+
 	handler := corsMiddleware(mux)
 
 	port := os.Getenv("PORT")
