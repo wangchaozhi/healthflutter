@@ -39,17 +39,26 @@ jobs:
 
       - name: Install AppImage tools
         run: |
-          # 安装 FUSE 库和 squashfs 工具
+          # 安装必要的工具
           sudo apt-get update
-          sudo apt-get install -y libfuse2 squashfs-tools
+          sudo apt-get install -y libfuse2 binwalk squashfs-tools
           # 下载 appimagetool AppImage
           wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /tmp/appimagetool.AppImage
           chmod +x /tmp/appimagetool.AppImage
-          # 使用 unsquashfs 提取 AppImage（不需要 FUSE）
+          # 使用 binwalk 找到 squashfs 偏移量并提取
           cd /tmp
-          unsquashfs -f -d squashfs-root appimagetool.AppImage
+          # 找到 squashfs 的偏移量（通常是第一个 squashfs 文件系统）
+          OFFSET=$(binwalk -y squashfs appimagetool.AppImage | grep -oP '^\d+' | head -1)
+          if [ -z "$OFFSET" ]; then
+            # 如果 binwalk 失败，尝试使用 dd 跳过常见的偏移量（通常是 0x10000 = 65536）
+            OFFSET=65536
+          fi
+          # 提取 squashfs 部分
+          dd if=appimagetool.AppImage of=squashfs.img bs=1 skip=$OFFSET 2>/dev/null
+          # 解压 squashfs
+          unsquashfs -f -d squashfs-root squashfs.img
           sudo mv squashfs-root/usr/bin/appimagetool /usr/local/bin/appimagetool
-          rm -rf squashfs-root /tmp/appimagetool.AppImage
+          rm -rf squashfs-root squashfs.img /tmp/appimagetool.AppImage
 
       - name: Create AppImage
         run: |
