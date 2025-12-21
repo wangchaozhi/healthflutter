@@ -11,6 +11,7 @@ import (
 
 	"backend/database"
 	"backend/handlers"
+	"backend/utils"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -323,7 +324,7 @@ func createActivityHandler(w http.ResponseWriter, r *http.Request) {
 		WeekDay:    weekDay,
 		Duration:   req.Duration,
 		Remark:     req.Remark,
-		CreatedAt:  time.Now().Format("2006-01-02 15:04:05"),
+		CreatedAt:  utils.NowString(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -459,7 +460,7 @@ func getActivityStatsHandler(w http.ResponseWriter, r *http.Request) {
 	var userIDInt int
 	fmt.Sscanf(userID, "%d", &userIDInt)
 
-	now := time.Now()
+	now := utils.Now()
 	currentYear := now.Format("2006")
 	currentMonth := now.Format("2006-01")
 
