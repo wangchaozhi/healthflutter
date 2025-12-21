@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:system_tray/system_tray.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// 系统托盘服务
 class TrayService {
@@ -35,19 +35,26 @@ class TrayService {
     try {
       _systemTray = SystemTray();
       
-      // 设置托盘图标
-      await _setTrayIcon();
+      // 获取图标路径
+      final iconPath = await _getTrayIconPath();
+      
+      // 初始化系统托盘（必须提供图标路径）
+      await _systemTray!.initSystemTray(
+        title: '健康管理',
+        iconPath: iconPath,
+      );
       
       // 创建菜单
       await _createMenu();
       
-      // 设置托盘工具提示
-      await _systemTray!.setToolTip('健康管理');
-      
       // 监听托盘点击事件
-      _systemTray!.onTrayIconMouseDown.listen((event) {
-        if (event.button == MouseButton.left) {
+      _systemTray!.registerSystemTrayEventHandler((eventName) {
+        if (eventName == kSystemTrayEventClick) {
+          // 左键点击：显示/隐藏窗口
           _showOrHideWindow();
+        } else if (eventName == kSystemTrayEventRightClick) {
+          // 右键点击：显示上下文菜单（由 setContextMenu 自动处理）
+          // 这里不需要额外处理
         }
       });
 
@@ -58,38 +65,52 @@ class TrayService {
     }
   }
 
-  /// 设置托盘图标
-  Future<void> _setTrayIcon() async {
-    if (_systemTray == null) return;
-
+  /// 获取托盘图标路径
+  Future<String> _getTrayIconPath() async {
+    // 首先尝试加载自定义图标
+    String assetIconPath = '';
+    
+    if (Platform.isWindows) {
+      assetIconPath = 'assets/icons/tray_icon.ico';
+    } else {
+      assetIconPath = 'assets/icons/tray_icon.png';
+    }
+    
     try {
-      // system_tray 插件会自动使用应用图标
-      // 如果需要自定义图标，可以在 assets 中添加图标文件
-      // Windows: .ico 格式
-      // macOS/Linux: .png 格式
-      
-      // 尝试加载自定义图标
-      String iconPath = '';
+      // 检查资源文件是否存在
+      await rootBundle.load(assetIconPath);
+      debugPrint('✅ 找到自定义托盘图标: $assetIconPath');
+      return assetIconPath;
+    } catch (e) {
+      // 如果资源文件不存在，使用应用可执行文件路径（Windows）或应用包路径
+      debugPrint('⚠️ 自定义托盘图标不存在，尝试使用应用图标');
       
       if (Platform.isWindows) {
-        iconPath = 'assets/icons/tray_icon.ico';
+        // Windows: 使用可执行文件路径（包含图标资源）
+        final executablePath = Platform.resolvedExecutable;
+        debugPrint('📁 Windows 可执行文件路径: $executablePath');
+        return executablePath; // Windows 会从 exe 文件中提取图标
+      } else if (Platform.isMacOS) {
+        // macOS: 使用应用包中的图标
+        try {
+          final appDir = await getApplicationSupportDirectory();
+          // macOS 应用通常在 Contents/Resources 目录中
+          // 这里返回应用包路径，让插件自动查找
+          final bundlePath = appDir.path.replaceAll('/Library/Application Support', '');
+          debugPrint('📁 macOS 应用路径: $bundlePath');
+          // 返回应用包路径，system_tray 会自动查找图标
+          return bundlePath;
+        } catch (e) {
+          debugPrint('❌ 获取 macOS 应用路径失败: $e');
+          // 如果失败，返回可执行文件路径
+          return Platform.resolvedExecutable;
+        }
       } else {
-        iconPath = 'assets/icons/tray_icon.png';
+        // Linux: 使用可执行文件路径或应用图标
+        final executablePath = Platform.resolvedExecutable;
+        debugPrint('📁 Linux 可执行文件路径: $executablePath');
+        return executablePath;
       }
-      
-      try {
-        // 检查资源文件是否存在
-        await rootBundle.load(iconPath);
-        await _systemTray!.setImage(iconPath);
-        debugPrint('✅ 使用自定义托盘图标: $iconPath');
-      } catch (e) {
-        // 如果资源文件不存在，使用应用默认图标
-        // system_tray 插件会尝试使用应用图标
-        debugPrint('⚠️ 自定义托盘图标不存在，使用应用默认图标');
-        // 不设置图标，让插件使用默认行为
-      }
-    } catch (e) {
-      debugPrint('❌ 设置托盘图标失败: $e');
     }
   }
 
