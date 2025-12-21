@@ -116,8 +116,26 @@ class MusicPlayerService extends ChangeNotifier {
         debugPrint('🎵 播放音乐: $title - $artist');
         debugPrint('🎵 播放URL: $streamUrl');
         
+        // 检测是否是本地文件（file:// URI）
+        Source audioSource;
+        if (streamUrl.startsWith('file://')) {
+          // 本地文件：提取文件路径并使用 DeviceFileSource
+          final uri = Uri.parse(streamUrl);
+          // Windows 路径处理：移除前导斜杠（如果有）
+          String filePath = uri.path;
+          if (filePath.startsWith('/') && filePath.length > 1 && filePath[1] == ':') {
+            // Windows 绝对路径，移除前导斜杠
+            filePath = filePath.substring(1);
+          }
+          audioSource = DeviceFileSource(filePath);
+          debugPrint('📦 使用本地文件播放: $filePath');
+        } else {
+          // 网络URL：使用 UrlSource
+          audioSource = UrlSource(streamUrl);
+        }
+        
         // 使用 audioplayers 播放
-        await _audioPlayer.play(UrlSource(streamUrl));
+        await _audioPlayer.play(audioSource);
       }
     } catch (e) {
       debugPrint('❌ 播放失败: $e');
@@ -279,7 +297,23 @@ class MusicPlayerService extends ChangeNotifier {
       
       // 使用 stop 然后 play 来确保重新开始
       await _audioPlayer.stop();
-      await _audioPlayer.play(UrlSource(_currentStreamUrl!));
+      
+      // 检测是否是本地文件
+      Source audioSource;
+      if (_currentStreamUrl!.startsWith('file://')) {
+        final uri = Uri.parse(_currentStreamUrl!);
+        // Windows 路径处理：移除前导斜杠（如果有）
+        String filePath = uri.path;
+        if (filePath.startsWith('/') && filePath.length > 1 && filePath[1] == ':') {
+          // Windows 绝对路径，移除前导斜杠
+          filePath = filePath.substring(1);
+        }
+        audioSource = DeviceFileSource(filePath);
+      } else {
+        audioSource = UrlSource(_currentStreamUrl!);
+      }
+      
+      await _audioPlayer.play(audioSource);
       
       debugPrint('✅ 单曲循环：重新播放成功');
     } catch (e) {

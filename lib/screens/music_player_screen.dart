@@ -10,9 +10,11 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import '../config/api_config.dart';
 import '../services/api_service.dart';
 import '../services/music_player_service.dart';
+import '../services/cache_service.dart';
 import '../utils/debounce.dart';
 import '../widgets/lyrics_manage_dialog.dart';
 import 'lyrics_detail_screen.dart';
+import 'cache_settings_screen.dart';
 
 class MusicPlayerScreen extends StatefulWidget {
   const MusicPlayerScreen({super.key});
@@ -32,6 +34,9 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
 
   // 全局音乐播放器服务
   final MusicPlayerService _playerService = MusicPlayerService();
+  
+  // 缓存服务
+  final CacheService _cacheService = CacheService();
 
   // 防抖
   final DebounceState _uploadDebounce = DebounceState();
@@ -50,6 +55,11 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
     _loadMusicList();
     // 监听播放器状态变化
     _playerService.addListener(_onPlayerStateChanged);
+    
+    // 如果有正在播放的歌曲，加载其歌词
+    if (_playerService.currentPlayingId != null) {
+      _loadLyrics(_playerService.currentPlayingId!);
+    }
   }
   
   @override
@@ -484,10 +494,28 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         orElse: () => {'title': '未知', 'artist': '未知艺术家'},
       );
       
+      // 检查是否有缓存（仅非Web平台）
+      String finalStreamUrl = streamUrl;
+      if (!kIsWeb) {
+        final cachedPath = await _cacheService.getCachedMusicPath(musicId);
+        if (cachedPath != null) {
+          finalStreamUrl = cachedPath;
+          debugPrint('📦 使用缓存音乐: $cachedPath');
+        } else {
+          debugPrint('📦 音乐未缓存，后台下载中...');
+          // 异步缓存音乐文件（不阻塞播放）
+          _cacheService.cacheMusic(musicId, streamUrl).then((path) {
+            if (path != null) {
+              debugPrint('✅ 音乐缓存完成: $path');
+            }
+          });
+        }
+      }
+      
       // 使用全局播放器服务播放
       await _playerService.playMusic(
         musicId: musicId,
-        streamUrl: streamUrl,
+        streamUrl: finalStreamUrl,
         title: music['title'] ?? '未知',
         artist: music['artist'] ?? '未知艺术家',
         forceReplay: forceReplay,
@@ -608,6 +636,18 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
   // 加载歌词
   Future<void> _loadLyrics(int musicId) async {
     try {
+      // 先从缓存读取
+      final cachedLyrics = await _cacheService.getCachedLyrics(musicId);
+      if (cachedLyrics != null) {
+        debugPrint('📦 从缓存加载歌词: $musicId');
+        setState(() {
+          _currentLyrics = cachedLyrics;
+        });
+        return;
+      }
+
+      // 缓存不存在，从服务器获取
+      debugPrint('🌐 从服务器加载歌词: $musicId');
       final token = await ApiService.getToken();
       if (token == null) return;
 
@@ -621,8 +661,13 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         if (data['success'] == true && data['lyrics'] != null) {
+          final lyricsContent = data['lyrics']['content'];
+          
+          // 保存到缓存
+          await _cacheService.cacheLyrics(musicId, lyricsContent);
+          
           setState(() {
-            _currentLyrics = data['lyrics']['content'];
+            _currentLyrics = lyricsContent;
           });
         } else {
           setState(() {
@@ -705,6 +750,19 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
       appBar: AppBar(
         title: const Text('音乐播放器'),
         actions: [
+          // Web平台不显示缓存管理（只使用内存缓存，意义不大）
+          if (!kIsWeb)
+            IconButton(
+              icon: const Icon(Icons.storage),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const CacheSettingsScreen(),
+                  ),
+                );
+              },
+              tooltip: '缓存管理',
+            ),
           IconButton(
             icon: const Icon(Icons.share),
             onPressed: () => Navigator.pushNamed(context, '/music_shares'),

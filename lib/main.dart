@@ -9,8 +9,15 @@ import 'screens/music_player_screen.dart';
 import 'screens/music_share_screen.dart';
 import 'screens/shared_music_player_screen.dart';
 import 'services/api_service.dart';
+import 'services/cache_service.dart';
 
-void main() {
+void main() async {
+  // 确保Flutter绑定初始化
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // 初始化缓存服务
+  await CacheService().init();
+  
   runApp(const MyApp());
 }
 

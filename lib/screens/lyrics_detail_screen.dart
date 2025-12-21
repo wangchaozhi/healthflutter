@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../services/api_service.dart';
 import '../services/music_player_service.dart';
+import '../services/cache_service.dart';
 import '../widgets/lyrics_widget.dart';
 import '../widgets/lyrics_manage_dialog.dart';
 
@@ -34,6 +35,7 @@ class LyricsDetailScreen extends StatefulWidget {
 
 class _LyricsDetailScreenState extends State<LyricsDetailScreen> {
   final MusicPlayerService _playerService = MusicPlayerService();
+  final CacheService _cacheService = CacheService();
   String? _currentLyrics;
   int? _lastMusicId; // 记录上一首歌曲的ID
   String _currentTitle = '';
@@ -77,6 +79,20 @@ class _LyricsDetailScreenState extends State<LyricsDetailScreen> {
   // 加载歌词
   Future<void> _loadLyrics(int musicId) async {
     try {
+      // 先从缓存读取
+      final cachedLyrics = await _cacheService.getCachedLyrics(musicId);
+      if (cachedLyrics != null) {
+        debugPrint('📦 从缓存加载歌词: $musicId');
+        if (mounted) {
+          setState(() {
+            _currentLyrics = cachedLyrics;
+          });
+        }
+        return;
+      }
+
+      // 缓存不存在，从服务器获取
+      debugPrint('🌐 从服务器加载歌词: $musicId');
       final token = await ApiService.getToken();
       if (token == null) return;
 
@@ -90,9 +106,14 @@ class _LyricsDetailScreenState extends State<LyricsDetailScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         if (data['success'] == true && data['lyrics'] != null) {
+          final lyricsContent = data['lyrics']['content'];
+          
+          // 保存到缓存
+          await _cacheService.cacheLyrics(musicId, lyricsContent);
+          
           if (mounted) {
             setState(() {
-              _currentLyrics = data['lyrics']['content'];
+              _currentLyrics = lyricsContent;
             });
           }
         } else {
