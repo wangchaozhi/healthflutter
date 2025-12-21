@@ -38,6 +38,11 @@ class TrayService {
       // 获取图标路径
       final iconPath = await _getTrayIconPath();
       
+      if (iconPath.isEmpty) {
+        debugPrint('❌ 无法获取有效的托盘图标路径');
+        return;
+      }
+      
       // 初始化系统托盘（必须提供图标路径）
       await _systemTray!.initSystemTray(
         title: '健康管理',
@@ -59,9 +64,10 @@ class TrayService {
       });
 
       _isInitialized = true;
-      debugPrint('✅ 系统托盘初始化成功');
-    } catch (e) {
+      debugPrint('✅ 系统托盘初始化成功，图标路径: $iconPath');
+    } catch (e, stackTrace) {
       debugPrint('❌ 系统托盘初始化失败: $e');
+      debugPrint('堆栈跟踪: $stackTrace');
     }
   }
 
@@ -82,34 +88,50 @@ class TrayService {
       debugPrint('✅ 找到自定义托盘图标: $assetIconPath');
       return assetIconPath;
     } catch (e) {
-      // 如果资源文件不存在，使用应用可执行文件路径（Windows）或应用包路径
-      debugPrint('⚠️ 自定义托盘图标不存在，尝试使用应用图标');
+      // 如果资源文件不存在，使用应用可执行文件路径
+      debugPrint('⚠️ 自定义托盘图标不存在，使用应用可执行文件路径');
       
       if (Platform.isWindows) {
         // Windows: 使用可执行文件路径（包含图标资源）
+        // system_tray 插件会从 exe 文件中提取图标
         final executablePath = Platform.resolvedExecutable;
         debugPrint('📁 Windows 可执行文件路径: $executablePath');
-        return executablePath; // Windows 会从 exe 文件中提取图标
+        // 验证文件是否存在
+        if (File(executablePath).existsSync()) {
+          return executablePath;
+        } else {
+          debugPrint('❌ 可执行文件不存在: $executablePath');
+          return '';
+        }
       } else if (Platform.isMacOS) {
-        // macOS: 使用应用包中的图标
+        // macOS: 尝试从应用包中获取图标
+        // macOS 应用的图标通常在 .app/Contents/Resources/AppIcon.icns
         try {
-          final appDir = await getApplicationSupportDirectory();
-          // macOS 应用通常在 Contents/Resources 目录中
-          // 这里返回应用包路径，让插件自动查找
-          final bundlePath = appDir.path.replaceAll('/Library/Application Support', '');
-          debugPrint('📁 macOS 应用路径: $bundlePath');
-          // 返回应用包路径，system_tray 会自动查找图标
-          return bundlePath;
+          final executablePath = Platform.resolvedExecutable;
+          // 从可执行文件路径推导应用包路径
+          // 例如: /path/to/App.app/Contents/MacOS/App -> /path/to/App.app
+          if (executablePath.contains('.app/Contents/MacOS/')) {
+            final appPath = executablePath.substring(0, executablePath.indexOf('.app/') + 5);
+            debugPrint('📁 macOS 应用包路径: $appPath');
+            return appPath;
+          } else {
+            debugPrint('📁 macOS 可执行文件路径: $executablePath');
+            return executablePath;
+          }
         } catch (e) {
           debugPrint('❌ 获取 macOS 应用路径失败: $e');
-          // 如果失败，返回可执行文件路径
-          return Platform.resolvedExecutable;
+          return '';
         }
       } else {
-        // Linux: 使用可执行文件路径或应用图标
+        // Linux: 使用可执行文件路径
         final executablePath = Platform.resolvedExecutable;
         debugPrint('📁 Linux 可执行文件路径: $executablePath');
-        return executablePath;
+        if (File(executablePath).existsSync()) {
+          return executablePath;
+        } else {
+          debugPrint('❌ 可执行文件不存在: $executablePath');
+          return '';
+        }
       }
     }
   }
