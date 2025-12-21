@@ -119,10 +119,7 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
 
   /// 上传歌词文件
   Future<void> _uploadLyrics() async {
-    setState(() {
-      _isUploading = true;
-    });
-
+    // 先打开文件选择器，不显示loading（参考文件传输页面的实现）
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -132,13 +129,16 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
         withReadStream: false, // 不使用流，直接读取数据
       );
 
+      // 用户选择了文件后，才显示loading
       if (result == null || result.files.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _isUploading = false;
-          });
-        }
-        return;
+        return; // 用户取消选择，直接返回
+      }
+      
+      // 用户选择了文件，开始显示loading
+      if (mounted) {
+        setState(() {
+          _isUploading = true;
+        });
       }
 
       final pickedFile = result.files.single;
