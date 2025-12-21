@@ -142,6 +142,16 @@ func LyricsUploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 如果提供了music_id，自动绑定歌词到歌曲（存在则更新，不存在则新增）
+	if musicID > 0 {
+		if err := database.BindLyricsToMusic(lyrics.ID, musicID, userID); err != nil {
+			log.Printf("绑定歌词到歌曲失败: %v", err)
+			// 绑定失败不影响上传成功，只记录日志
+		} else {
+			log.Printf("歌词已自动绑定到歌曲: lyrics_id=%d, music_id=%d", lyrics.ID, musicID)
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(models.LyricsUploadResponse{
 		Success: true,
@@ -309,7 +319,10 @@ func LyricsDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 删除歌词
+	// 先获取绑定到该歌词的所有歌曲ID（用于前端清除缓存）
+	musicIDs, _ := database.GetMusicIDsByLyricsID(lyricsID)
+
+	// 删除歌词（会自动删除关联表中的绑定记录，因为外键设置了ON DELETE CASCADE）
 	if err := database.DeleteLyrics(lyricsID, userID); err != nil {
 		http.Error(w, "删除失败", http.StatusInternalServerError)
 		return
@@ -317,8 +330,9 @@ func LyricsDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"message": "删除成功",
+		"success":  true,
+		"message":   "删除成功",
+		"music_ids": musicIDs, // 返回绑定的歌曲ID列表，供前端清除缓存
 	})
 }
 

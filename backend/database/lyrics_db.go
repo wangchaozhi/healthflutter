@@ -281,22 +281,62 @@ func DeleteLyrics(id, userID int) error {
 		return err
 	}
 
-	// 删除物理文件
-	if _, err := os.Stat(filePath); err == nil {
-		if err := os.Remove(filePath); err != nil {
-			log.Printf("删除歌词文件失败: %v", err)
-			return err
-		}
-		log.Printf("歌词文件删除成功: %s", filePath)
+	// 开始事务
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 先删除关联表中的绑定记录（虽然外键有CASCADE，但显式删除更清晰）
+	_, err = tx.Exec("DELETE FROM music_lyrics_binding WHERE lyrics_id = ?", id)
+	if err != nil {
+		log.Printf("删除歌词绑定记录失败: %v", err)
+		return err
 	}
 
-	// 删除数据库记录
-	_, err = DB.Exec("DELETE FROM lyrics WHERE id = ? AND user_id = ?", id, userID)
+	// 删除歌词记录
+	_, err = tx.Exec("DELETE FROM lyrics WHERE id = ? AND user_id = ?", id, userID)
 	if err != nil {
 		log.Printf("删除歌词记录失败: %v", err)
 		return err
 	}
 
+	// 提交事务
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	// 删除物理文件（在事务外执行，避免影响数据库操作）
+	if _, err := os.Stat(filePath); err == nil {
+		if err := os.Remove(filePath); err != nil {
+			log.Printf("删除歌词文件失败: %v", err)
+			// 文件删除失败不影响数据库操作成功
+		} else {
+			log.Printf("歌词文件删除成功: %s", filePath)
+		}
+	}
+
 	log.Printf("歌词记录删除成功: id=%d, user_id=%d", id, userID)
 	return nil
+}
+
+// GetMusicIDsByLyricsID 获取绑定到指定歌词的所有歌曲ID
+func GetMusicIDsByLyricsID(lyricsID int) ([]int, error) {
+	rows, err := DB.Query("SELECT music_id FROM music_lyrics_binding WHERE lyrics_id = ?", lyricsID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var musicIDs []int
+	for rows.Next() {
+		var musicID int
+		if err := rows.Scan(&musicID); err != nil {
+			continue
+		}
+		musicIDs = append(musicIDs, musicID)
+	}
+
+	return musicIDs, nil
 }

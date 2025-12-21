@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import '../config/api_config.dart';
 import '../services/api_service.dart';
+import '../services/cache_service.dart';
 
 /// 歌词管理对话框
 class LyricsManageDialog extends StatefulWidget {
@@ -30,6 +31,7 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
   bool _hasCurrentLyrics = false; // 当前歌曲是否有绑定的歌词
   List<dynamic> _lyricsList = [];
   final TextEditingController _searchController = TextEditingController();
+  final CacheService _cacheService = CacheService();
 
   @override
   void initState() {
@@ -121,17 +123,31 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
   Future<void> _uploadLyrics() async {
     // 先打开文件选择器，不显示loading（参考文件传输页面的实现）
     try {
+      // 移动端使用 FileType.any，然后在代码中过滤文件类型
+      // 因为 FileType.custom 在移动端可能不支持或限制太严格
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['lrc', 'txt'],
+        type: FileType.any, // 使用 any 类型以确保移动端可用
         allowMultiple: false,
         withData: true, // 确保读取文件数据（Web和移动端都支持）
-        withReadStream: false, // 不使用流，直接读取数据
       );
 
       // 用户选择了文件后，才显示loading
       if (result == null || result.files.isEmpty) {
         return; // 用户取消选择，直接返回
+      }
+
+      final pickedFile = result.files.single;
+      
+      // 检查文件扩展名（移动端使用 FileType.any，需要手动过滤）
+      final fileName = pickedFile.name.toLowerCase();
+      final isValidExtension = fileName.endsWith('.lrc') || fileName.endsWith('.txt');
+      if (!isValidExtension) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('请选择 .lrc 或 .txt 格式的歌词文件')),
+          );
+        }
+        return;
       }
       
       // 用户选择了文件，开始显示loading
@@ -141,7 +157,6 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
         });
       }
 
-      final pickedFile = result.files.single;
       final token = await ApiService.getToken();
       if (token == null) {
         if (mounted) {
@@ -215,11 +230,14 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         if (data['success'] == true) {
+          // 清除当前歌曲的歌词缓存（因为上传了新歌词）
+          await _cacheService.deleteLyricsCache(widget.musicId);
+          
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('上传并绑定成功')),
             );
-            // 通知歌词已变化
+            // 通知歌词已变化（会触发主页面更新歌词图标）
             widget.onLyricsChanged?.call();
             Navigator.pop(context);
           }
@@ -281,11 +299,14 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         if (data['success'] == true) {
+          // 清除当前歌曲的歌词缓存（因为绑定了新歌词）
+          await _cacheService.deleteLyricsCache(widget.musicId);
+          
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('绑定成功')),
             );
-            // 通知歌词已变化
+            // 通知歌词已变化（会触发主页面更新歌词图标）
             widget.onLyricsChanged?.call();
             Navigator.pop(context);
           }
@@ -301,6 +322,92 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('绑定失败: $e')),
+        );
+      }
+    }
+  }
+
+  /// 删除歌词
+  Future<void> _deleteLyrics(int lyricsId, String lyricsTitle) async {
+    // 确认对话框
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text('确定要删除歌词"$lyricsTitle"吗？\n\n删除后无法恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final token = await ApiService.getToken();
+      if (token == null) {
+        return;
+      }
+
+      final response = await http.delete(
+        Uri.parse('${ApiConfig.baseUrl}/lyrics/delete?id=$lyricsId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (data['success'] == true) {
+          // 清除所有绑定到该歌词的歌曲的缓存
+          if (data['music_ids'] != null) {
+            final musicIDs = List<int>.from(data['music_ids']);
+            for (var musicId in musicIDs) {
+              await _cacheService.deleteLyricsCache(musicId);
+            }
+            debugPrint('🗑️ 已清除 ${musicIDs.length} 首歌曲的歌词缓存');
+          }
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('删除成功')),
+            );
+            // 如果删除的是当前歌曲的歌词，通知主页面更新
+            if (data['music_ids'] != null) {
+              final musicIDs = List<int>.from(data['music_ids']);
+              if (musicIDs.contains(widget.musicId)) {
+                widget.onLyricsChanged?.call();
+              }
+            }
+            // 重新搜索歌词列表
+            _searchLyrics(_searchController.text);
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(data['message'] ?? '删除失败')),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('删除失败: ${response.statusCode}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败: $e')),
         );
       }
     }
@@ -345,6 +452,9 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         if (data['success'] == true) {
+          // 清除当前歌曲的歌词缓存（因为取消了绑定）
+          await _cacheService.deleteLyricsCache(widget.musicId);
+          
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('取消绑定成功')),
@@ -352,7 +462,7 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
             setState(() {
               _hasCurrentLyrics = false;
             });
-            // 通知歌词已变化
+            // 通知歌词已变化（会触发主页面更新歌词图标）
             widget.onLyricsChanged?.call();
           }
         } else {
@@ -494,23 +604,31 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
 
                             return Card(
                               margin: const EdgeInsets.only(bottom: 8),
-                              child: ListTile(
-                                leading: const Icon(
-                                  Icons.lyrics,
-                                  color: Colors.blue,
+                              child: GestureDetector(
+                                onLongPress: () {
+                                  _deleteLyrics(
+                                    lyrics['id'],
+                                    lyrics['title'] ?? '未知',
+                                  );
+                                },
+                                child: ListTile(
+                                  leading: const Icon(
+                                    Icons.lyrics,
+                                    color: Colors.blue,
+                                  ),
+                                  title: Text(lyrics['title'] ?? '未知'),
+                                  subtitle: Text(lyrics['artist'] ?? '未知艺术家'),
+                                  trailing: isAlreadyBound
+                                      ? const Chip(
+                                          label: Text('已绑定'),
+                                          backgroundColor: Colors.green,
+                                          labelStyle: TextStyle(color: Colors.white),
+                                        )
+                                      : ElevatedButton(
+                                          onPressed: () => _bindLyrics(lyrics['id']),
+                                          child: const Text('绑定'),
+                                        ),
                                 ),
-                                title: Text(lyrics['title'] ?? '未知'),
-                                subtitle: Text(lyrics['artist'] ?? '未知艺术家'),
-                                trailing: isAlreadyBound
-                                    ? const Chip(
-                                        label: Text('已绑定'),
-                                        backgroundColor: Colors.green,
-                                        labelStyle: TextStyle(color: Colors.white),
-                                      )
-                                    : ElevatedButton(
-                                        onPressed: () => _bindLyrics(lyrics['id']),
-                                        child: const Text('绑定'),
-                                      ),
                               ),
                             );
                           },
