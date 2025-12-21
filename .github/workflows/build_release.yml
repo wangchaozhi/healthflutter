@@ -41,7 +41,7 @@ jobs:
         run: |
           # 安装必要的工具
           sudo apt-get update
-          sudo apt-get install -y libfuse2 binwalk squashfs-tools
+          sudo apt-get install -y libfuse2 binwalk squashfs-tools squashfs-tools
           # 下载 appimagetool AppImage
           wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /tmp/appimagetool.AppImage
           chmod +x /tmp/appimagetool.AppImage
@@ -58,6 +58,12 @@ jobs:
           # 解压 squashfs
           unsquashfs -f -d squashfs-root squashfs.img
           sudo mv squashfs-root/usr/bin/appimagetool /usr/local/bin/appimagetool
+          # 创建 mksquashfs 的符号链接（appimagetool 需要）
+          MKSQUASHFS_PATH=$(which mksquashfs)
+          if [ -n "$MKSQUASHFS_PATH" ]; then
+            sudo mkdir -p /usr/local/lib/appimagekit
+            sudo ln -sf "$MKSQUASHFS_PATH" /usr/local/lib/appimagekit/mksquashfs
+          fi
           rm -rf squashfs-root squashfs.img /tmp/appimagetool.AppImage
 
       - name: Create AppImage
