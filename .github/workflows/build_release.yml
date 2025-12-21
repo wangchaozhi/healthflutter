@@ -39,9 +39,9 @@ jobs:
 
       - name: Install AppImage tools
         run: |
-          # 安装 FUSE 库（linuxdeploy 需要）
+          # 安装 FUSE 库和 desktop-file-utils（linuxdeploy 需要）
           sudo apt-get update
-          sudo apt-get install -y libfuse2
+          sudo apt-get install -y libfuse2 desktop-file-utils
           # 下载 linuxdeploy
           wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O /tmp/linuxdeploy.AppImage
           chmod +x /tmp/linuxdeploy.AppImage
@@ -76,8 +76,18 @@ jobs:
             cp bundle/data/flutter_assets/assets/icons/tray_icon.png AppDir/usr/share/icons/hicolor/256x256/apps/healthflutter.png
           fi
           
-          # 使用 linuxdeploy 构建 AppImage（自动处理依赖和库）
-          linuxdeploy --appdir AppDir --output appimage
+          # 使用 linuxdeploy 构建 AppImage（排除系统库以提升兼容性）
+          # 排除 GLIBC 和系统核心库，使用目标系统的库
+          linuxdeploy \
+            --appdir AppDir \
+            --output appimage \
+            --exclude-library libc.so.6 \
+            --exclude-library libm.so.6 \
+            --exclude-library libpthread.so.0 \
+            --exclude-library librt.so.1 \
+            --exclude-library libdl.so.2 \
+            --exclude-library libresolv.so.2 \
+            --exclude-library libgcc_s.so.1
           
           # 查找并重命名生成的 AppImage
           find . -name "*.AppImage" -not -name "linuxdeploy*" -exec mv {} healthflutter-${{ github.ref_name }}-x86_64.AppImage \;
