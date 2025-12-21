@@ -152,14 +152,20 @@ class _LyricsWidgetState extends State<LyricsWidget> {
       
       // 行高和padding必须与UI中的设置一致
       const itemHeight = 50.0;
-      const topPadding = 150.0;
+      const topPadding = 0.0; // 更新为新的顶部padding
       
-      // 计算当前行的中心位置
-      final itemCenter = topPadding + (_currentLineIndex * itemHeight) + (itemHeight / 2);
+      double targetOffset;
       
-      // 计算滚动偏移量，使当前行居中
-      final viewportCenter = _scrollController.position.viewportDimension / 2;
-      final targetOffset = itemCenter - viewportCenter;
+      // 特殊处理：前几句歌词靠近顶部，不居中
+      if (_currentLineIndex <= 2) {
+        // 前三句歌词靠近上边框，只保留少量间距
+        targetOffset = _currentLineIndex * itemHeight;
+      } else {
+        // 后续歌词居中显示
+        final itemCenter = topPadding + (_currentLineIndex * itemHeight) + (itemHeight / 2);
+        final viewportCenter = _scrollController.position.viewportDimension / 2;
+        targetOffset = itemCenter - viewportCenter;
+      }
       
       // 限制在可滚动范围内
       final clampedOffset = targetOffset.clamp(
@@ -242,7 +248,7 @@ class _LyricsWidgetState extends State<LyricsWidget> {
     return ListView.builder(
       controller: _scrollController,
       itemCount: _lyricLines.length,
-      padding: const EdgeInsets.symmetric(vertical: 150), // 增加顶部和底部padding
+      padding: const EdgeInsets.only(top: 0, bottom: 200), // 顶部完全贴边，底部保持足够空间
       itemBuilder: (context, index) {
         final line = _lyricLines[index];
         final isCurrent = index == _currentLineIndex;
