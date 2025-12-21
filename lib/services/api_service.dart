@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 
 class ApiService {
-  static const String baseUrl = ApiConfig.baseUrl;
+  static String get baseUrl => ApiConfig.baseUrl;
   
   // 获取token
   static Future<String?> getToken() async {
