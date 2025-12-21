@@ -1,207 +1,238 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:system_tray/system_tray.dart';
-import 'package:window_manager/window_manager.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:system_tray/system_tray.dart';
+import 'package:window_manager/window_manager.dart';
 
-/// 系统托盘服务
-class TrayService {
+class TrayService extends WindowListener {
   static final TrayService _instance = TrayService._internal();
   factory TrayService() => _instance;
   TrayService._internal();
 
   SystemTray? _systemTray;
-  Menu? _menu;
   bool _isInitialized = false;
-  VoidCallback? _onShowWindow;
-  VoidCallback? _onQuit;
+  bool _isWindowVisible = true;
 
   /// 初始化托盘
-  Future<void> init({
-    VoidCallback? onShowWindow,
-    VoidCallback? onQuit,
-  }) async {
+  Future<void> init() async {
     if (_isInitialized) return;
-    
-    // 只在桌面平台初始化
-    if (!Platform.isWindows && !Platform.isLinux && !Platform.isMacOS) {
-      return;
-    }
-
-    _onShowWindow = onShowWindow;
-    _onQuit = onQuit;
 
     try {
-      _systemTray = SystemTray();
-      
-      // 获取图标路径
-      final iconPath = await _getTrayIconPath();
-      
-      if (iconPath.isEmpty) {
-        debugPrint('❌ 无法获取有效的托盘图标路径');
-        return;
-      }
-      
-      // 初始化系统托盘（必须提供图标路径）
-      await _systemTray!.initSystemTray(
-        title: '健康管理',
-        iconPath: iconPath,
+      // 初始化窗口管理器
+      await windowManager.ensureInitialized();
+
+      // 设置窗口选项 - 关闭窗口时不退出应用
+      WindowOptions windowOptions = const WindowOptions(
+        skipTaskbar: false,
+        titleBarStyle: TitleBarStyle.normal,
       );
-      
-      // 创建菜单
-      await _createMenu();
-      
-      // 监听托盘点击事件
-      _systemTray!.registerSystemTrayEventHandler((eventName) {
-        if (eventName == kSystemTrayEventClick) {
-          // 左键点击：显示/隐藏窗口
-          _showOrHideWindow();
-        } else if (eventName == kSystemTrayEventRightClick) {
-          // 右键点击：显示上下文菜单（由 setContextMenu 自动处理）
-          // 这里不需要额外处理
-        }
+      windowManager.waitUntilReadyToShow(windowOptions, () async {
+        await windowManager.show();
+        await windowManager.focus();
       });
 
+      // 设置阻止窗口关闭，由我们自定义处理
+      await windowManager.setPreventClose(true);
+      
+      // 添加窗口监听器
+      windowManager.addListener(this);
+
+      // 初始化系统托盘
+      _systemTray = SystemTray();
+      
+      // 尝试初始化托盘，如果图标不存在则使用空字符串
+      String? iconPath = await _getIconPath();
+      bool trayInitialized = false;
+      
+      if (iconPath != null && iconPath.isNotEmpty) {
+        try {
+          await _systemTray!.initSystemTray(
+            title: "健康管理",
+            iconPath: iconPath,
+          );
+          trayInitialized = true;
+        } catch (e) {
+          debugPrint('使用自定义图标失败: $e');
+        }
+      }
+      
+      // 如果使用自定义图标失败，尝试使用应用图标
+      if (!trayInitialized) {
+        try {
+          // 尝试使用应用的可执行文件路径（Windows）或应用包路径（macOS/Linux）
+          String? appIconPath = _getAppIconPath();
+          if (appIconPath != null) {
+            await _systemTray!.initSystemTray(
+              title: "健康管理",
+              iconPath: appIconPath,
+            );
+            trayInitialized = true;
+          } else {
+            // 如果无法获取应用图标，尝试空字符串
+            await _systemTray!.initSystemTray(
+              title: "健康管理",
+              iconPath: "",
+            );
+            trayInitialized = true;
+          }
+        } catch (e) {
+          debugPrint('初始化托盘完全失败，将跳过托盘功能: $e');
+          // 如果完全失败，返回但不影响应用运行
+          return;
+        }
+      }
+
+      // 创建托盘菜单
+      try {
+        final Menu menu = Menu();
+        await menu.buildFrom([
+          MenuItemLabel(
+            label: '显示/隐藏',
+            onClicked: (menuItem) => _toggleWindow(),
+          ),
+          MenuSeparator(),
+          MenuItemLabel(
+            label: '退出',
+            onClicked: (menuItem) => _exitApp(),
+          ),
+        ]);
+
+        // 设置托盘菜单
+        await _systemTray!.setContextMenu(menu);
+
+        // 监听托盘图标点击事件
+        _systemTray!.registerSystemTrayEventHandler((eventName) {
+          if (eventName == kSystemTrayEventClick) {
+            // 左键点击：切换窗口显示/隐藏
+            _toggleWindow();
+          } else if (eventName == kSystemTrayEventRightClick) {
+            // 右键点击：显示上下文菜单
+            // Windows 需要手动调用 popUpContextMenu
+            if (Platform.isWindows) {
+              _systemTray!.popUpContextMenu();
+            }
+            // Linux 和 macOS 通常会自动显示菜单
+          }
+        });
+      } catch (e) {
+        debugPrint('设置托盘菜单失败: $e');
+        // 即使菜单设置失败，也标记为已初始化（至少窗口管理功能可用）
+      }
+
       _isInitialized = true;
-      debugPrint('✅ 系统托盘初始化成功，图标路径: $iconPath');
-    } catch (e, stackTrace) {
-      debugPrint('❌ 系统托盘初始化失败: $e');
-      debugPrint('堆栈跟踪: $stackTrace');
+    } catch (e) {
+      debugPrint('托盘初始化失败: $e');
     }
   }
 
   /// 获取托盘图标路径
-  Future<String> _getTrayIconPath() async {
-    // 首先尝试加载自定义图标
-    String assetIconPath = '';
-    
-    if (Platform.isWindows) {
-      assetIconPath = 'assets/icons/tray_icon.ico';
-    } else {
-      assetIconPath = 'assets/icons/tray_icon.png';
-    }
-    
+  /// 尝试从 assets 加载图标并复制到临时目录
+  Future<String?> _getIconPath() async {
     try {
-      // 检查资源文件是否存在
-      await rootBundle.load(assetIconPath);
-      debugPrint('✅ 找到自定义托盘图标: $assetIconPath');
-      return assetIconPath;
-    } catch (e) {
-      // 如果资源文件不存在，使用应用可执行文件路径
-      debugPrint('⚠️ 自定义托盘图标不存在，使用应用可执行文件路径');
+      // 确定图标文件名
+      String iconFileName;
+      String assetPath;
       
       if (Platform.isWindows) {
-        // Windows: 使用可执行文件路径（包含图标资源）
-        // system_tray 插件会从 exe 文件中提取图标
-        final executablePath = Platform.resolvedExecutable;
-        debugPrint('📁 Windows 可执行文件路径: $executablePath');
-        // 验证文件是否存在
-        if (File(executablePath).existsSync()) {
-          return executablePath;
-        } else {
-          debugPrint('❌ 可执行文件不存在: $executablePath');
-          return '';
-        }
-      } else if (Platform.isMacOS) {
-        // macOS: 尝试从应用包中获取图标
-        // macOS 应用的图标通常在 .app/Contents/Resources/AppIcon.icns
-        try {
-          final executablePath = Platform.resolvedExecutable;
-          // 从可执行文件路径推导应用包路径
-          // 例如: /path/to/App.app/Contents/MacOS/App -> /path/to/App.app
-          if (executablePath.contains('.app/Contents/MacOS/')) {
-            final appPath = executablePath.substring(0, executablePath.indexOf('.app/') + 5);
-            debugPrint('📁 macOS 应用包路径: $appPath');
-            return appPath;
-          } else {
-            debugPrint('📁 macOS 可执行文件路径: $executablePath');
-            return executablePath;
-          }
-        } catch (e) {
-          debugPrint('❌ 获取 macOS 应用路径失败: $e');
-          return '';
-        }
+        iconFileName = 'tray_icon.ico';
+        assetPath = 'assets/icons/tray_icon.ico';
       } else {
-        // Linux: 使用可执行文件路径
-        final executablePath = Platform.resolvedExecutable;
-        debugPrint('📁 Linux 可执行文件路径: $executablePath');
-        if (File(executablePath).existsSync()) {
-          return executablePath;
-        } else {
-          debugPrint('❌ 可执行文件不存在: $executablePath');
-          return '';
-        }
+        iconFileName = 'tray_icon.png';
+        assetPath = 'assets/icons/tray_icon.png';
       }
-    }
-  }
-
-  /// 创建托盘菜单
-  Future<void> _createMenu() async {
-    if (_systemTray == null) return;
-
-    try {
-      _menu = Menu();
       
-      // 显示窗口
-      await _menu!.buildFrom([
-        MenuItemLabel(
-          label: '显示窗口',
-          onClicked: (menuItem) {
-            _showOrHideWindow();
-          },
-        ),
-        MenuItemLabel(
-          label: '---', // 分隔线
-        ),
-        MenuItemLabel(
-          label: '退出',
-          onClicked: (menuItem) {
-            _quit();
-          },
-        ),
-      ]);
-
-      await _systemTray!.setContextMenu(_menu!);
+      // 尝试从 assets 加载图标
+      try {
+        final ByteData data = await rootBundle.load(assetPath);
+        final Directory tempDir = await getTemporaryDirectory();
+        final String iconPath = '${tempDir.path}/$iconFileName';
+        final File iconFile = File(iconPath);
+        await iconFile.writeAsBytes(data.buffer.asUint8List());
+        return iconFile.path;
+      } catch (e) {
+        // 如果 assets 中没有图标，返回 null 使用默认图标
+        debugPrint('从 assets 加载图标失败: $e');
+        return null;
+      }
     } catch (e) {
-      debugPrint('❌ 创建托盘菜单失败: $e');
+      debugPrint('获取图标路径失败: $e');
+      return null;
     }
   }
 
-  /// 显示或隐藏窗口
-  Future<void> _showOrHideWindow() async {
+  /// 切换窗口显示/隐藏
+  Future<void> _toggleWindow() async {
     try {
-      if (await windowManager.isVisible()) {
-        // 如果窗口可见，则隐藏
+      if (_isWindowVisible) {
         await windowManager.hide();
+        _isWindowVisible = false;
       } else {
-        // 如果窗口隐藏，则显示并聚焦
         await windowManager.show();
         await windowManager.focus();
+        _isWindowVisible = true;
       }
-      
-      _onShowWindow?.call();
     } catch (e) {
-      debugPrint('❌ 显示/隐藏窗口失败: $e');
+      debugPrint('切换窗口失败: $e');
     }
   }
 
   /// 退出应用
-  void _quit() {
-    _onQuit?.call();
-    exit(0);
+  Future<void> _exitApp() async {
+    try {
+      if (_systemTray != null) {
+        await _systemTray!.destroy();
+      }
+      exit(0);
+    } catch (e) {
+      debugPrint('退出应用失败: $e');
+      exit(0);
+    }
+  }
+
+  /// 窗口关闭事件处理
+  @override
+  void onWindowClose() {
+    // 隐藏窗口而不是退出应用
+    windowManager.hide().then((_) {
+      _isWindowVisible = false;
+    });
+  }
+
+  /// 获取应用图标路径
+  String? _getAppIconPath() {
+    try {
+      if (Platform.isWindows) {
+        // Windows: 使用可执行文件路径
+        final String exePath = Platform.resolvedExecutable;
+        return exePath;
+      } else if (Platform.isMacOS) {
+        // macOS: 使用应用包路径
+        final String bundlePath = Platform.resolvedExecutable;
+        // macOS 应用通常在 .app/Contents/MacOS/ 目录下
+        return bundlePath;
+      } else if (Platform.isLinux) {
+        // Linux: 尝试使用应用图标
+        // 通常位于 /usr/share/pixmaps/ 或应用目录
+        return null;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('获取应用图标路径失败: $e');
+      return null;
+    }
   }
 
   /// 销毁托盘
-  Future<void> dispose() async {
-    if (!_isInitialized) return;
-    
+  Future<void> destroy() async {
+    if (!_isInitialized || _systemTray == null) return;
     try {
-      // system_tray 插件会自动清理资源
+      // 移除窗口监听器
+      windowManager.removeListener(this);
+      await _systemTray!.destroy();
       _isInitialized = false;
-      debugPrint('✅ 系统托盘已销毁');
     } catch (e) {
-      debugPrint('❌ 销毁系统托盘失败: $e');
+      debugPrint('销毁托盘失败: $e');
     }
   }
 }

@@ -1,7 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:window_manager/window_manager.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
@@ -13,6 +11,7 @@ import 'screens/shared_music_player_screen.dart';
 import 'services/api_service.dart';
 import 'services/cache_service.dart';
 import 'services/tray_service.dart';
+import 'dart:io';
 
 void main() async {
   // 确保Flutter绑定初始化
@@ -21,47 +20,12 @@ void main() async {
   // 初始化缓存服务
   await CacheService().init();
   
-  // 桌面平台初始化窗口管理和托盘
+  // 在桌面平台初始化托盘功能
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    await _initDesktop();
+    await TrayService().init();
   }
   
   runApp(const MyApp());
-}
-
-/// 初始化桌面平台功能
-Future<void> _initDesktop() async {
-  try {
-    // 初始化窗口管理器
-    await windowManager.ensureInitialized();
-    
-    // 窗口选项
-    const windowOptions = WindowOptions(
-      size: Size(1280, 720),
-      center: true,
-      backgroundColor: Colors.transparent,
-      skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.normal,
-    );
-    
-    await windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
-    
-    // 初始化系统托盘
-    await TrayService().init(
-      onShowWindow: () async {
-        await windowManager.show();
-        await windowManager.focus();
-      },
-      onQuit: () {
-        exit(0);
-      },
-    );
-  } catch (e) {
-    debugPrint('❌ 桌面平台初始化失败: $e');
-  }
 }
 
 class MyApp extends StatelessWidget {
