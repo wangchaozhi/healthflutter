@@ -41,7 +41,7 @@ jobs:
         run: |
           # 安装必要的工具
           sudo apt-get update
-          sudo apt-get install -y libfuse2 binwalk squashfs-tools squashfs-tools
+          sudo apt-get install -y libfuse2 binwalk squashfs-tools
           # 下载 appimagetool AppImage
           wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /tmp/appimagetool.AppImage
           chmod +x /tmp/appimagetool.AppImage
