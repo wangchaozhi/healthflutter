@@ -304,10 +304,11 @@ func createActivityHandler(w http.ResponseWriter, r *http.Request) {
 	var userIDInt int
 	fmt.Sscanf(userID, "%d", &userIDInt)
 
-	// 插入记录
+	// 插入记录，存储 UTC 时间
+	createdAtUTC := utils.NowUTCString()
 	result, err := database.DB.Exec(
-		"INSERT INTO health_activities (user_id, record_date, record_time, week_day, duration, remark) VALUES (?, ?, ?, ?, ?, ?)",
-		userIDInt, req.RecordDate, req.RecordTime, weekDay, req.Duration, req.Remark,
+		"INSERT INTO health_activities (user_id, record_date, record_time, week_day, duration, remark, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		userIDInt, req.RecordDate, req.RecordTime, weekDay, req.Duration, req.Remark, createdAtUTC,
 	)
 	if err != nil {
 		http.Error(w, "创建记录失败", http.StatusInternalServerError)
@@ -316,6 +317,7 @@ func createActivityHandler(w http.ResponseWriter, r *http.Request) {
 
 	activityID, _ := result.LastInsertId()
 
+	// 显示时转换为东八区时间
 	activity := HealthActivity{
 		ID:         int(activityID),
 		UserID:     userIDInt,
@@ -324,7 +326,7 @@ func createActivityHandler(w http.ResponseWriter, r *http.Request) {
 		WeekDay:    weekDay,
 		Duration:   req.Duration,
 		Remark:     req.Remark,
-		CreatedAt:  utils.NowString(),
+		CreatedAt:  utils.UTCToShanghai(createdAtUTC), // 转换为东八区显示
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -364,6 +366,7 @@ func listActivitiesHandler(w http.ResponseWriter, r *http.Request) {
 	var activities []HealthActivity
 	for rows.Next() {
 		var activity HealthActivity
+		var createdAt string
 		err := rows.Scan(
 			&activity.ID,
 			&activity.UserID,
@@ -372,11 +375,15 @@ func listActivitiesHandler(w http.ResponseWriter, r *http.Request) {
 			&activity.WeekDay,
 			&activity.Duration,
 			&activity.Remark,
-			&activity.CreatedAt,
+			&createdAt,
 		)
 		if err != nil {
 			continue
 		}
+		
+		// 处理 created_at 时间：数据库存储的是 UTC，显示时转换为东八区
+		activity.CreatedAt = utils.UTCToShanghai(createdAt)
+		
 		activities = append(activities, activity)
 	}
 

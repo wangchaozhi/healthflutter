@@ -8,6 +8,7 @@ import (
 	"time"
 	
 	"github.com/golang-jwt/jwt/v5"
+	"backend/utils"
 )
 
 // JWT密钥 - 生产环境请使用环境变量
@@ -26,8 +27,8 @@ func GenerateToken(username string, userID int) (string, error) {
 		Username: username,
 		UserID:   userID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(utils.Now().Add(24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(utils.Now()),
+			ExpiresAt: jwt.NewNumericDate(utils.NowUTC().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(utils.NowUTC()),
 		},
 	}
 

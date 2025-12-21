@@ -3,9 +3,9 @@ package database
 import (
 	"log"
 	"os"
-	"time"
-	
+
 	"backend/models"
+	"backend/utils"
 )
 
 // InitFileTransferTable 初始化文件传输表
@@ -21,21 +21,27 @@ func InitFileTransferTable() error {
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (user_id) REFERENCES users(id)
 	);`
-	
+
 	_, err := DB.Exec(createTableSQL)
 	if err != nil {
 		return err
 	}
-	
+
 	log.Println("文件传输表初始化成功")
 	return nil
 }
 
 // SaveFileTransfer 保存文件传输记录
 func SaveFileTransfer(file *models.FileTransfer) error {
+	// 存储 UTC 时间（如果为空，使用当前 UTC 时间）
+	createdAt := file.CreatedAt
+	if createdAt == "" {
+		createdAt = utils.NowUTCString()
+	}
+
 	_, err := DB.Exec(
-		"INSERT INTO file_transfers (user_id, file_name, file_path, file_size, file_type) VALUES (?, ?, ?, ?, ?)",
-		file.UserID, file.FileName, file.FilePath, file.FileSize, file.FileType,
+		"INSERT INTO file_transfers (user_id, file_name, file_path, file_size, file_type, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+		file.UserID, file.FileName, file.FilePath, file.FileSize, file.FileType, createdAt,
 	)
 	return err
 }
@@ -48,7 +54,7 @@ func GetUserFileTransfers(userID int, page, pageSize int) ([]models.FileTransfer
 	if err != nil {
 		return nil, 0, err
 	}
-	
+
 	// 获取分页数据
 	offset := (page - 1) * pageSize
 	rows, err := DB.Query(
@@ -59,7 +65,7 @@ func GetUserFileTransfers(userID int, page, pageSize int) ([]models.FileTransfer
 		return nil, 0, err
 	}
 	defer rows.Close()
-	
+
 	var files []models.FileTransfer
 	for rows.Next() {
 		var file models.FileTransfer
@@ -78,17 +84,13 @@ func GetUserFileTransfers(userID int, page, pageSize int) ([]models.FileTransfer
 		}
 		// 格式化文件大小
 		file.FileSizeStr = formatFileSizeInDB(file.FileSize)
-		
-		// 格式化日期时间为更友好的格式 (去掉 T 和 Z)
-		if t, err := time.Parse(time.RFC3339, createdAt); err == nil {
-			file.CreatedAt = t.Format("2006-01-02 15:04:05")
-		} else {
-			file.CreatedAt = createdAt
-		}
-		
+
+		// 数据库存储的是 UTC 时间，显示时转换为东八区
+		file.CreatedAt = utils.UTCToShanghai(createdAt)
+
 		files = append(files, file)
 	}
-	
+
 	return files, total, nil
 }
 
@@ -100,7 +102,7 @@ func DeleteFileTransfer(id, userID int) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// 先删除物理文件（如果存在）
 	if _, err := os.Stat(filePath); err == nil {
 		// 文件存在，尝试删除
@@ -114,14 +116,14 @@ func DeleteFileTransfer(id, userID int) error {
 		log.Printf("物理文件不存在: %s", filePath)
 		// 文件不存在，继续删除数据库记录
 	}
-	
+
 	// 删除数据库记录
 	_, err = DB.Exec("DELETE FROM file_transfers WHERE id = ? AND user_id = ?", id, userID)
 	if err != nil {
 		log.Printf("删除数据库记录失败: %v", err)
 		return err
 	}
-	
+
 	log.Printf("数据库记录删除成功: id=%d, user_id=%d", id, userID)
 	return nil
 }
@@ -146,17 +148,12 @@ func GetFileTransferByID(id, userID int) (*models.FileTransfer, error) {
 		return nil, err
 	}
 	file.FileSizeStr = formatFileSizeInDB(file.FileSize)
-	
-	// 格式化日期时间为更友好的格式 (去掉 T 和 Z)
-	if t, err := time.Parse(time.RFC3339, createdAt); err == nil {
-		file.CreatedAt = t.Format("2006-01-02 15:04:05")
-	} else {
-		file.CreatedAt = createdAt
-	}
-	
+
+	// 数据库存储的是 UTC 时间，显示时转换为东八区
+	file.CreatedAt = utils.UTCToShanghai(createdAt)
+
 	return &file, nil
 }
 
 // 格式化文件大小（复用douyin_db.go中的函数）
 // formatFileSizeInDB 已经在 douyin_db.go 中定义，这里直接使用
-

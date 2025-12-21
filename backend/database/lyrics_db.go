@@ -76,7 +76,8 @@ func SaveLyrics(lyrics *models.Lyrics) error {
 		return err
 	}
 	lyrics.ID = int(id)
-	lyrics.CreatedAt = utils.Now()
+	// CreatedAt 设置为 UTC 时间（数据库存储的是 UTC，这里保持一致）
+	lyrics.CreatedAt = utils.NowUTC()
 
 	return nil
 }

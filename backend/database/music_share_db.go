@@ -146,8 +146,8 @@ func GetMusicShareByToken(token string) (*models.MusicShare, error) {
 		}
 	}
 
-	// 检查是否过期
-	if share.ExpiresAt != nil && share.ExpiresAt.Before(utils.Now()) {
+	// 检查是否过期（使用 UTC 时间比较）
+	if share.ExpiresAt != nil && share.ExpiresAt.Before(utils.NowUTC()) {
 		return nil, nil // 已过期
 	}
 

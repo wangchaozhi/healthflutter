@@ -1,15 +1,14 @@
 package database
 
 import (
+	"backend/models"
+	"backend/utils"
 	"database/sql"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
-	"backend/models"
-	"backend/utils"
 )
 
 var DB *sql.DB
@@ -54,7 +53,7 @@ func InitDouyinTable() error {
 
 	// 如果url字段不存在，添加url字段（用于迁移旧数据）
 	_, _ = DB.Exec("ALTER TABLE douyin_files ADD COLUMN url TEXT")
-	
+
 	// 尝试移除旧的path UNIQUE约束（如果存在）
 	// SQLite不支持直接删除UNIQUE约束，需要重建表，这里先忽略错误
 	_, _ = DB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_path ON douyin_files(user_id, path)")
@@ -210,7 +209,7 @@ func CreateFileRecordForUser(userID int, url string, paths []string) error {
 			FileSizeStr:  fileSizeStr,
 			ModifiedTime: fileInfo.ModTime().Format("2006-01-02 15:04:05"),
 			Path:         path,
-			CreatedAt:    utils.NowString(),
+			CreatedAt:    utils.NowUTCString(), // 存储 UTC 时间
 		}
 
 		if err := SaveDouyinFile(&file); err != nil {
@@ -291,4 +290,3 @@ func GetDouyinFileByID(id, userID int) (*models.DouyinFile, error) {
 	}
 	return &file, nil
 }
-

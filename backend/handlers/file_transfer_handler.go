@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 	
 	"backend/database"
 	"backend/models"
@@ -103,7 +102,7 @@ func FileUploadHandler(w http.ResponseWriter, r *http.Request) {
 		FilePath: filePath,
 		FileSize: fileSize,
 		FileType: fileType,
-		CreatedAt: utils.NowString(),
+		CreatedAt: utils.NowUTCString(), // 存储 UTC 时间
 	}
 
 	if err := database.SaveFileTransfer(fileTransfer); err != nil {
@@ -313,7 +312,7 @@ func SaveClipboardHandler(w http.ResponseWriter, r *http.Request) {
 		FilePath: filePath,
 		FileSize: fileInfo.Size(),
 		FileType: "txt",
-		CreatedAt: utils.NowString(),
+		CreatedAt: utils.NowUTCString(), // 存储 UTC 时间
 	}
 
 	if err := database.SaveFileTransfer(fileTransfer); err != nil {
