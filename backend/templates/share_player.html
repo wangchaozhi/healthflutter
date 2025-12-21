@@ -25,10 +25,14 @@
             background: white;
             border-radius: 20px;
             padding: 40px;
-            max-width: 500px;
+            max-width: 600px;
             width: 100%;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             text-align: center;
+            max-height: 95vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
         }
         
         .album-cover {
@@ -41,6 +45,7 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            flex-shrink: 0;
         }
         
         .album-cover svg {
@@ -51,7 +56,8 @@
         }
         
         .music-info {
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+            flex-shrink: 0;
         }
         
         .title {
@@ -59,29 +65,35 @@
             font-weight: bold;
             color: #333;
             margin-bottom: 10px;
+            word-wrap: break-word;
         }
         
         .artist {
             font-size: 18px;
             color: #666;
             margin-bottom: 5px;
+            word-wrap: break-word;
         }
         
         .album {
             font-size: 16px;
             color: #999;
+            word-wrap: break-word;
         }
         
         .lyrics-container {
-            max-height: 300px;
+            max-height: 250px;
+            min-height: 100px;
             overflow-y: auto;
-            margin: 20px 0;
-            padding: 20px;
+            margin: 15px 0;
+            padding: 15px;
             background: #f9f9f9;
             border-radius: 12px;
             text-align: center;
             scrollbar-width: thin;
             scrollbar-color: #667eea #f0f0f0;
+            flex: 1;
+            flex-shrink: 1;
         }
         
         .lyrics-container::-webkit-scrollbar {
@@ -120,7 +132,8 @@
         }
         
         .player-controls {
-            margin: 30px 0;
+            margin: 20px 0;
+            flex-shrink: 0;
         }
         
         .progress-bar {
@@ -128,7 +141,7 @@
             height: 6px;
             background: #e0e0e0;
             border-radius: 3px;
-            margin: 20px 0;
+            margin: 15px 0;
             cursor: pointer;
             position: relative;
         }
@@ -146,7 +159,7 @@
             justify-content: space-between;
             font-size: 14px;
             color: #666;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
         
         .play-button {
@@ -180,35 +193,159 @@
         }
         
         .footer {
-            margin-top: 30px;
-            padding-top: 20px;
+            margin-top: 20px;
+            padding-top: 15px;
             border-top: 1px solid #e0e0e0;
             font-size: 14px;
             color: #999;
+            flex-shrink: 0;
         }
         
         .error-message {
             color: #f44336;
-            margin-top: 20px;
+            margin-top: 15px;
             font-size: 14px;
+            flex-shrink: 0;
         }
         
-        @media (max-width: 600px) {
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
             .container {
-                padding: 30px 20px;
+                padding: 20px 15px;
+                max-height: 98vh;
+                border-radius: 16px;
             }
             
             .album-cover {
-                width: 220px;
-                height: 220px;
+                width: 200px;
+                height: 200px;
+                margin-bottom: 20px;
+            }
+            
+            .album-cover svg {
+                width: 100px;
+                height: 100px;
             }
             
             .title {
-                font-size: 24px;
+                font-size: 22px;
+                margin-bottom: 8px;
             }
             
             .artist {
                 font-size: 16px;
+                margin-bottom: 4px;
+            }
+            
+            .album {
+                font-size: 14px;
+            }
+            
+            .lyrics-container {
+                max-height: 200px;
+                min-height: 80px;
+                padding: 12px;
+                margin: 12px 0;
+            }
+            
+            .lyrics-line {
+                padding: 6px 0;
+                font-size: 14px;
+            }
+            
+            .lyrics-line.active {
+                font-size: 18px;
+            }
+            
+            .player-controls {
+                margin: 15px 0;
+            }
+            
+            .play-button {
+                width: 70px;
+                height: 70px;
+            }
+            
+            .play-button svg {
+                width: 30px;
+                height: 30px;
+            }
+            
+            .time-info {
+                font-size: 12px;
+                margin-bottom: 12px;
+            }
+            
+            .footer {
+                margin-top: 15px;
+                padding-top: 12px;
+                font-size: 12px;
+            }
+        }
+        
+        /* 小屏幕手机适配 */
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px 12px;
+            }
+            
+            .album-cover {
+                width: 180px;
+                height: 180px;
+                margin-bottom: 15px;
+            }
+            
+            .album-cover svg {
+                width: 80px;
+                height: 80px;
+            }
+            
+            .title {
+                font-size: 20px;
+            }
+            
+            .artist {
+                font-size: 14px;
+            }
+            
+            .album {
+                font-size: 12px;
+            }
+            
+            .lyrics-container {
+                max-height: 180px;
+                padding: 10px;
+            }
+            
+            .play-button {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .play-button svg {
+                width: 25px;
+                height: 25px;
+            }
+        }
+        
+        /* 桌面端大屏幕适配 */
+        @media (min-width: 1200px) {
+            .container {
+                max-width: 700px;
+                padding: 50px;
+            }
+            
+            .album-cover {
+                width: 320px;
+                height: 320px;
+            }
+            
+            .lyrics-container {
+                max-height: 350px;
             }
         }
     </style>
