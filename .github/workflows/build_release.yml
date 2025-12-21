@@ -37,16 +37,60 @@ jobs:
       - name: Build Linux
         run: flutter build linux --release
 
-      - name: Package Linux release
+      - name: Install AppImage tools
         run: |
-          cd build/linux/x64/release/bundle
-          tar -czf ../../../../healthflutter-linux-${{ github.ref_name }}.tar.gz .
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /tmp/appimagetool
+          chmod +x /tmp/appimagetool
+          sudo mv /tmp/appimagetool /usr/local/bin/appimagetool
+
+      - name: Create AppImage
+        run: |
+          cd build/linux/x64/release
+          # 创建 AppDir 结构
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          
+          # 复制 bundle 内容到 AppDir/usr/bin
+          cp -r bundle/* AppDir/usr/bin/
+          
+          # 创建 .desktop 文件
+          cat > AppDir/healthflutter.desktop << 'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=健康管理
+          Comment=健康管理应用
+          Exec=healthflutter
+          Icon=healthflutter
+          Categories=Utility;
+          EOF
+          
+          # 复制图标（如果存在）
+          if [ -f "bundle/data/flutter_assets/assets/icons/tray_icon.png" ]; then
+            cp bundle/data/flutter_assets/assets/icons/tray_icon.png AppDir/healthflutter.png
+          else
+            # 创建一个简单的占位图标
+            convert -size 256x256 xc:blue -pointsize 72 -fill white -gravity center -annotate +0+0 "健康" AppDir/healthflutter.png 2>/dev/null || echo "图标创建失败，将使用默认图标"
+          fi
+          
+          # 创建 AppRun
+          cat > AppDir/AppRun << 'EOF'
+          #!/bin/bash
+          SELF="$(readlink -f "$0")"
+          HERE="${SELF%/*}"
+          cd "${HERE}/usr/bin"
+          exec ./healthflutter "$@"
+          EOF
+          chmod +x AppDir/AppRun
+          
+          # 生成 AppImage
+          ARCH=x86_64 appimagetool AppDir healthflutter-${{ github.ref_name }}-x86_64.AppImage
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-release
-          path: build/healthflutter-linux-${{ github.ref_name }}.tar.gz
+          path: build/linux/x64/release/healthflutter-${{ github.ref_name }}-x86_64.AppImage
           retention-days: 30
 
   build-windows:
@@ -228,16 +272,35 @@ jobs:
       - name: Build macOS
         run: flutter build macos --release
 
-      - name: Package macOS release
+      - name: Install create-dmg
+        run: |
+          brew install create-dmg
+
+      - name: Create DMG
         run: |
           cd build/macos/Build/Products/Release
-          zip -r ../../../../healthflutter-macos-${{ github.ref_name }}.zip healthflutter.app
+          # 创建临时目录用于 DMG
+          mkdir -p dmg_temp
+          cp -R healthflutter.app dmg_temp/
+          
+          # 创建 DMG
+          create-dmg \
+            --volname "健康管理" \
+            --volicon "healthflutter.app/Contents/Resources/AppIcon.icns" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --icon "healthflutter.app" 200 190 \
+            --hide-extension "healthflutter.app" \
+            --app-drop-link 600 185 \
+            "healthflutter-${{ github.ref_name }}.dmg" \
+            dmg_temp/
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-release
-          path: build/healthflutter-macos-${{ github.ref_name }}.zip
+          path: build/macos/Build/Products/Release/healthflutter-${{ github.ref_name }}.dmg
           retention-days: 30
 
   build-ios:
