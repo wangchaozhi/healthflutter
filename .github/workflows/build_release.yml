@@ -272,29 +272,31 @@ jobs:
       - name: Build macOS
         run: flutter build macos --release
 
-      - name: Install create-dmg
-        run: |
-          brew install create-dmg
-
       - name: Create DMG
         run: |
           cd build/macos/Build/Products/Release
-          # 创建临时目录用于 DMG
-          mkdir -p dmg_temp
-          cp -R healthflutter.app dmg_temp/
           
-          # 创建 DMG
-          create-dmg \
-            --volname "健康管理" \
-            --volicon "healthflutter.app/Contents/Resources/AppIcon.icns" \
-            --window-pos 200 120 \
-            --window-size 800 400 \
-            --icon-size 100 \
-            --icon "healthflutter.app" 200 190 \
-            --hide-extension "healthflutter.app" \
-            --app-drop-link 600 185 \
-            "healthflutter-${{ github.ref_name }}.dmg" \
-            dmg_temp/
+          # 创建 DMG 目录结构
+          DMG_NAME="healthflutter-${{ github.ref_name }}.dmg"
+          DMG_TEMP="dmg_temp"
+          
+          # 清理旧的 DMG 和临时目录
+          rm -rf "$DMG_TEMP" "$DMG_NAME"
+          
+          # 创建临时目录
+          mkdir -p "$DMG_TEMP"
+          
+          # 复制应用
+          cp -R healthflutter.app "$DMG_TEMP/"
+          
+          # 创建 Applications 链接
+          ln -s /Applications "$DMG_TEMP/Applications"
+          
+          # 使用 hdiutil 创建 DMG
+          hdiutil create -volname "健康管理" -srcfolder "$DMG_TEMP" -ov -format UDZO "$DMG_NAME"
+          
+          # 清理临时目录
+          rm -rf "$DMG_TEMP"
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
