@@ -39,32 +39,13 @@ jobs:
 
       - name: Install AppImage tools
         run: |
-          # 安装必要的工具
+          # 安装 FUSE 库（linuxdeploy 需要）
           sudo apt-get update
-          sudo apt-get install -y libfuse2 binwalk squashfs-tools
-          # 下载 appimagetool AppImage
-          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /tmp/appimagetool.AppImage
-          chmod +x /tmp/appimagetool.AppImage
-          # 使用 binwalk 找到 squashfs 偏移量并提取
-          cd /tmp
-          # 找到 squashfs 的偏移量（通常是第一个 squashfs 文件系统）
-          OFFSET=$(binwalk -y squashfs appimagetool.AppImage | grep -oP '^\d+' | head -1)
-          if [ -z "$OFFSET" ]; then
-            # 如果 binwalk 失败，尝试使用 dd 跳过常见的偏移量（通常是 0x10000 = 65536）
-            OFFSET=65536
-          fi
-          # 提取 squashfs 部分
-          dd if=appimagetool.AppImage of=squashfs.img bs=1 skip=$OFFSET 2>/dev/null
-          # 解压 squashfs
-          unsquashfs -f -d squashfs-root squashfs.img
-          sudo mv squashfs-root/usr/bin/appimagetool /usr/local/bin/appimagetool
-          # 创建 mksquashfs 的符号链接（appimagetool 需要）
-          MKSQUASHFS_PATH=$(which mksquashfs)
-          if [ -n "$MKSQUASHFS_PATH" ]; then
-            sudo mkdir -p /usr/local/lib/appimagekit
-            sudo ln -sf "$MKSQUASHFS_PATH" /usr/local/lib/appimagekit/mksquashfs
-          fi
-          rm -rf squashfs-root squashfs.img /tmp/appimagetool.AppImage
+          sudo apt-get install -y libfuse2
+          # 下载 linuxdeploy
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O /tmp/linuxdeploy.AppImage
+          chmod +x /tmp/linuxdeploy.AppImage
+          sudo mv /tmp/linuxdeploy.AppImage /usr/local/bin/linuxdeploy
 
       - name: Create AppImage
         run: |
@@ -78,7 +59,7 @@ jobs:
           cp -r bundle/* AppDir/usr/bin/
           
           # 创建 .desktop 文件
-          cat > AppDir/healthflutter.desktop << 'EOF'
+          cat > AppDir/usr/share/applications/healthflutter.desktop << 'EOF'
           [Desktop Entry]
           Type=Application
           Name=健康管理
@@ -95,19 +76,11 @@ jobs:
             cp bundle/data/flutter_assets/assets/icons/tray_icon.png AppDir/usr/share/icons/hicolor/256x256/apps/healthflutter.png
           fi
           
-          # 创建 AppRun
-          cat > AppDir/AppRun << 'EOF'
-          #!/bin/bash
-          SELF="$(readlink -f "$0")"
-          HERE="${SELF%/*}"
-          cd "${HERE}/usr/bin"
-          export APPDIR="${HERE}"
-          exec ./healthflutter "$@"
-          EOF
-          chmod +x AppDir/AppRun
+          # 使用 linuxdeploy 构建 AppImage（自动处理依赖和库）
+          linuxdeploy --appdir AppDir --output appimage
           
-          # 生成 AppImage
-          ARCH=x86_64 appimagetool AppDir healthflutter-${{ github.ref_name }}-x86_64.AppImage
+          # 查找并重命名生成的 AppImage
+          find . -name "*.AppImage" -not -name "linuxdeploy*" -exec mv {} healthflutter-${{ github.ref_name }}-x86_64.AppImage \;
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -115,6 +88,7 @@ jobs:
           name: linux-release
           path: build/linux/x64/release/healthflutter-${{ github.ref_name }}-x86_64.AppImage
           retention-days: 30
+          if-no-files-found: error
 
   build-windows:
     name: Build Windows
