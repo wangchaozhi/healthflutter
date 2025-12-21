@@ -63,14 +63,13 @@ jobs:
           Exec=healthflutter
           Icon=healthflutter
           Categories=Utility;
+          Terminal=false
           EOF
           
           # 复制图标（如果存在）
           if [ -f "bundle/data/flutter_assets/assets/icons/tray_icon.png" ]; then
             cp bundle/data/flutter_assets/assets/icons/tray_icon.png AppDir/healthflutter.png
-          else
-            # 创建一个简单的占位图标
-            convert -size 256x256 xc:blue -pointsize 72 -fill white -gravity center -annotate +0+0 "健康" AppDir/healthflutter.png 2>/dev/null || echo "图标创建失败，将使用默认图标"
+            cp bundle/data/flutter_assets/assets/icons/tray_icon.png AppDir/usr/share/icons/hicolor/256x256/apps/healthflutter.png
           fi
           
           # 创建 AppRun
@@ -79,6 +78,7 @@ jobs:
           SELF="$(readlink -f "$0")"
           HERE="${SELF%/*}"
           cd "${HERE}/usr/bin"
+          export APPDIR="${HERE}"
           exec ./healthflutter "$@"
           EOF
           chmod +x AppDir/AppRun
