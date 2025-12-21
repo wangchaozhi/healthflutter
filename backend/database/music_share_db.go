@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"backend/models"
+	"backend/utils"
 )
 
 // InitMusicShareTable 初始化音乐分享表
@@ -146,7 +147,7 @@ func GetMusicShareByToken(token string) (*models.MusicShare, error) {
 	}
 
 	// 检查是否过期
-	if share.ExpiresAt != nil && share.ExpiresAt.Before(time.Now()) {
+	if share.ExpiresAt != nil && share.ExpiresAt.Before(utils.Now()) {
 		return nil, nil // 已过期
 	}
 

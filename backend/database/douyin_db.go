@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 	"backend/models"
+	"backend/utils"
 )
 
 var DB *sql.DB
@@ -209,7 +210,7 @@ func CreateFileRecordForUser(userID int, url string, paths []string) error {
 			FileSizeStr:  fileSizeStr,
 			ModifiedTime: fileInfo.ModTime().Format("2006-01-02 15:04:05"),
 			Path:         path,
-			CreatedAt:    time.Now().Format("2006-01-02 15:04:05"),
+			CreatedAt:    utils.NowString(),
 		}
 
 		if err := SaveDouyinFile(&file); err != nil {

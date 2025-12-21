@@ -14,6 +14,7 @@ import (
 
 	"backend/database"
 	"backend/models"
+	"backend/utils"
 )
 
 // MusicUploadHandler 音乐上传处理
@@ -67,7 +68,7 @@ func MusicUploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 生成唯一文件名
-	timestamp := time.Now().Format("20060102150405")
+	timestamp := utils.NowTimestamp()
 	filename := fmt.Sprintf("%d_%s_%s%s", userID, strings.TrimSuffix(handler.Filename, fileType), timestamp, fileType)
 	filePath := filepath.Join(uploadDir, filename)
 

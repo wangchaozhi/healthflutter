@@ -12,6 +12,7 @@ import (
 
 	"backend/database"
 	"backend/models"
+	"backend/utils"
 )
 
 // 提取URL
@@ -139,7 +140,7 @@ func ScanAndSaveFiles(userID int, url string) error {
 	downloadPath := "Download/douyin/one"
 
 	// 获取当前时间，只处理最近5分钟内修改的文件（新下载的文件）
-	cutoffTime := time.Now().Add(-5 * time.Minute)
+	cutoffTime := utils.Now().Add(-5 * time.Minute)
 
 	return filepath.Walk(downloadPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -171,7 +172,7 @@ func ScanAndSaveFiles(userID int, url string) error {
 				FileSizeStr:  formatFileSize(info.Size()),
 				ModifiedTime: info.ModTime().Format("2006-01-02 15:04:05"),
 				Path:         path,
-				CreatedAt:    time.Now().Format("2006-01-02 15:04:05"),
+				CreatedAt:    utils.NowString(),
 			}
 
 			return database.SaveDouyinFile(&file)

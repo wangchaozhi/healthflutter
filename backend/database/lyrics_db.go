@@ -5,8 +5,9 @@ import (
 	"log"
 	"os"
 	"time"
-
+	
 	"backend/models"
+	"backend/utils"
 )
 
 // InitLyricsTable 初始化歌词表和关联表
@@ -75,7 +76,7 @@ func SaveLyrics(lyrics *models.Lyrics) error {
 		return err
 	}
 	lyrics.ID = int(id)
-	lyrics.CreatedAt = time.Now()
+	lyrics.CreatedAt = utils.Now()
 
 	return nil
 }

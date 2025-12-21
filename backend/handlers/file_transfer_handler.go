@@ -13,6 +13,7 @@ import (
 	
 	"backend/database"
 	"backend/models"
+	"backend/utils"
 )
 
 // 格式化文件大小
@@ -66,7 +67,7 @@ func FileUploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 生成唯一文件名
-	timestamp := time.Now().Format("20060102150405")
+	timestamp := utils.NowTimestamp()
 	ext := filepath.Ext(handler.Filename)
 	fileName := fmt.Sprintf("%s_%s%s", strings.TrimSuffix(handler.Filename, ext), timestamp, ext)
 	filePath := filepath.Join(uploadDir, fmt.Sprintf("%d_%s", userID, fileName))
@@ -102,7 +103,7 @@ func FileUploadHandler(w http.ResponseWriter, r *http.Request) {
 		FilePath: filePath,
 		FileSize: fileSize,
 		FileType: fileType,
-		CreatedAt: time.Now().Format("2006-01-02 15:04:05"),
+		CreatedAt: utils.NowString(),
 	}
 
 	if err := database.SaveFileTransfer(fileTransfer); err != nil {
@@ -287,7 +288,7 @@ func SaveClipboardHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 生成文件名（日期时间格式）
-	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	timestamp := utils.Now().Format("2006-01-02_15-04-05")
 	fileName := fmt.Sprintf("clipboard_%s.txt", timestamp)
 	filePath := filepath.Join(uploadDir, fmt.Sprintf("%d_%s", userID, fileName))
 
@@ -312,7 +313,7 @@ func SaveClipboardHandler(w http.ResponseWriter, r *http.Request) {
 		FilePath: filePath,
 		FileSize: fileInfo.Size(),
 		FileType: "txt",
-		CreatedAt: time.Now().Format("2006-01-02 15:04:05"),
+		CreatedAt: utils.NowString(),
 	}
 
 	if err := database.SaveFileTransfer(fileTransfer); err != nil {
