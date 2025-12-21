@@ -142,24 +142,38 @@ class _LyricsWidgetState extends State<LyricsWidget> {
     }
   }
 
-  /// 滚动到当前行
+  /// 滚动到当前行（居中显示）
   void _scrollToCurrentLine() {
-    if (_scrollController.hasClients && _lyricLines.isNotEmpty) {
-      // 计算目标位置（让当前行显示在中间）
-      const itemHeight = 50.0; // 增加行高
-      final targetOffset = (_currentLineIndex * itemHeight) - 
-                          (_scrollController.position.viewportDimension / 2) + 
-                          (itemHeight / 2);
+    if (!_scrollController.hasClients || _lyricLines.isEmpty) return;
+    
+    // 使用 WidgetsBinding 确保在下一帧执行，避免布局冲突
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
       
-      _scrollController.animateTo(
-        targetOffset.clamp(
-          _scrollController.position.minScrollExtent,
-          _scrollController.position.maxScrollExtent,
-        ),
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
+      // 行高和padding必须与UI中的设置一致
+      const itemHeight = 50.0;
+      const topPadding = 150.0;
+      
+      // 计算当前行的中心位置
+      final itemCenter = topPadding + (_currentLineIndex * itemHeight) + (itemHeight / 2);
+      
+      // 计算滚动偏移量，使当前行居中
+      final viewportCenter = _scrollController.position.viewportDimension / 2;
+      final targetOffset = itemCenter - viewportCenter;
+      
+      // 限制在可滚动范围内
+      final clampedOffset = targetOffset.clamp(
+        _scrollController.position.minScrollExtent,
+        _scrollController.position.maxScrollExtent,
       );
-    }
+      
+      // 平滑滚动到目标位置
+      _scrollController.animateTo(
+        clampedOffset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    });
   }
 
   @override
