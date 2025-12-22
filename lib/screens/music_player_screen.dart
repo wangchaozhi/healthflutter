@@ -12,6 +12,7 @@ import '../services/api_service.dart';
 import '../services/music_player_service.dart';
 import '../services/cache_service.dart';
 import '../utils/debounce.dart';
+import '../utils/platform_utils.dart';
 import '../widgets/lyrics_manage_dialog.dart';
 import 'lyrics_detail_screen.dart';
 import 'cache_settings_screen.dart';
@@ -746,10 +747,39 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('音乐播放器'),
-        actions: [
+    // 键盘快捷键映射（所有平台都支持）
+    final Map<LogicalKeySet, Intent> shortcuts = {
+      LogicalKeySet(LogicalKeyboardKey.space): const _PlayPauseIntent(),
+      LogicalKeySet(LogicalKeyboardKey.arrowLeft): const _PreviousIntent(),
+      LogicalKeySet(LogicalKeyboardKey.arrowRight): const _NextIntent(),
+    };
+
+    // 动作处理
+    final Map<Type, Action<Intent>> actions = {
+      _PlayPauseIntent: CallbackAction<_PlayPauseIntent>(
+        onInvoke: (_) {
+          _togglePlayPause();
+          return null;
+        },
+      ),
+      _PreviousIntent: CallbackAction<_PreviousIntent>(
+        onInvoke: (_) {
+          _playPrevious();
+          return null;
+        },
+      ),
+      _NextIntent: CallbackAction<_NextIntent>(
+        onInvoke: (_) {
+          _playNext();
+          return null;
+        },
+      ),
+    };
+
+    Widget scaffold = Scaffold(
+        appBar: AppBar(
+          title: const Text('音乐播放器'),
+          actions: [
           // Web平台不显示缓存管理（只使用内存缓存，意义不大）
           if (!kIsWeb)
             IconButton(
@@ -1060,6 +1090,51 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
               ],
             ),
     );
+
+    // 使用 Shortcuts 和 Actions 处理键盘事件（所有平台都支持）
+    return FocusScope(
+      autofocus: kIsWeb || isDesktop, // Web 端和桌面端自动获取焦点
+      child: Shortcuts(
+        shortcuts: shortcuts,
+        child: Actions(
+          actions: actions,
+          child: Focus(
+            autofocus: kIsWeb || isDesktop, // Web 端和桌面端自动获取焦点
+            canRequestFocus: true,
+            onKeyEvent: (FocusNode node, KeyEvent event) {
+              // 作为备选方案，直接处理键盘事件（特别是 Web 端）
+              if (event is KeyDownEvent) {
+                if (event.logicalKey == LogicalKeyboardKey.space) {
+                  _togglePlayPause();
+                  return KeyEventResult.handled;
+                } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                  _playPrevious();
+                  return KeyEventResult.handled;
+                } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                  _playNext();
+                  return KeyEventResult.handled;
+                }
+              }
+              return KeyEventResult.ignored;
+            },
+            child: scaffold,
+          ),
+        ),
+      ),
+    );
   }
 
+}
+
+// 键盘快捷键 Intent 类
+class _PlayPauseIntent extends Intent {
+  const _PlayPauseIntent();
+}
+
+class _PreviousIntent extends Intent {
+  const _PreviousIntent();
+}
+
+class _NextIntent extends Intent {
+  const _NextIntent();
 }
