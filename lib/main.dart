@@ -13,6 +13,7 @@ import 'screens/filebrowser_screen.dart';
 import 'screens/xui_screen.dart';
 import 'screens/frps_screen.dart';
 import 'screens/webview_menu_screen.dart';
+import 'screens/tools_menu_screen.dart';
 import 'services/api_service.dart';
 import 'services/cache_service.dart';
 import 'services/tray_service.dart';
@@ -65,6 +66,7 @@ class MyApp extends StatelessWidget {
         '/music_player': (context) => const MusicPlayerScreen(),
         '/music_shares': (context) => const MusicShareScreen(),
         '/webview_menu': (context) => const WebViewMenuScreen(),
+        '/tools_menu': (context) => const ToolsMenuScreen(),
         '/ariang': (context) => const AriaNgScreen(),
         '/filebrowser': (context) => const FileBrowserScreen(),
         '/xui': (context) => const XuiScreen(),

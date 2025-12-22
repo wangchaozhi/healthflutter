@@ -294,21 +294,14 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('健康管理'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.video_library),
+            icon: const Icon(Icons.construction),
             onPressed: () {
-              Navigator.of(context).pushNamed('/douyin');
+              Navigator.of(context).pushNamed('/tools_menu');
             },
-            tooltip: '抖音解析工具',
+            tooltip: '工具',
           ),
           IconButton(
-            icon: const Icon(Icons.file_upload),
-            onPressed: () {
-              Navigator.of(context).pushNamed('/file_transfer');
-            },
-            tooltip: '文件传输',
-          ),
-          IconButton(
-            icon: const Icon(Icons.web),
+            icon: const Icon(Icons.public),
             onPressed: () {
               Navigator.of(context).pushNamed('/webview_menu');
             },
