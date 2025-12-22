@@ -308,18 +308,11 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: '文件传输',
           ),
           IconButton(
-            icon: const Icon(Icons.download),
+            icon: const Icon(Icons.web),
             onPressed: () {
-              Navigator.of(context).pushNamed('/ariang');
+              Navigator.of(context).pushNamed('/webview_menu');
             },
-            tooltip: 'AriaNg 下载管理',
-          ),
-          IconButton(
-            icon: const Icon(Icons.folder),
-            onPressed: () {
-              Navigator.of(context).pushNamed('/filebrowser');
-            },
-            tooltip: '文件浏览器',
+            tooltip: 'WebView 服务',
           ),
           IconButton(
             icon: const Icon(Icons.music_note),
