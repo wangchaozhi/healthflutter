@@ -9,6 +9,7 @@ import 'screens/music_player_screen.dart';
 import 'screens/music_share_screen.dart';
 import 'screens/shared_music_player_screen.dart';
 import 'screens/ariang_screen.dart';
+import 'screens/filebrowser_screen.dart';
 import 'services/api_service.dart';
 import 'services/cache_service.dart';
 import 'services/tray_service.dart';
@@ -61,6 +62,7 @@ class MyApp extends StatelessWidget {
         '/music_player': (context) => const MusicPlayerScreen(),
         '/music_shares': (context) => const MusicShareScreen(),
         '/ariang': (context) => const AriaNgScreen(),
+        '/filebrowser': (context) => const FileBrowserScreen(),
       },
       onGenerateRoute: (settings) {
         // 处理动态路由，如 /share/:token

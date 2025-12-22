@@ -315,6 +315,13 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'AriaNg 下载管理',
           ),
           IconButton(
+            icon: const Icon(Icons.folder),
+            onPressed: () {
+              Navigator.of(context).pushNamed('/filebrowser');
+            },
+            tooltip: '文件浏览器',
+          ),
+          IconButton(
             icon: const Icon(Icons.music_note),
             onPressed: () {
               Navigator.of(context).pushNamed('/music_player');
