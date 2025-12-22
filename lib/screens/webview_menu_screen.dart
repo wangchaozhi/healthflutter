@@ -35,6 +35,20 @@ class WebViewMenuScreen extends StatelessWidget {
       route: '/filebrowser',
       color: Colors.green,
     ),
+    WebViewMenuItem(
+      title: 'X-UI 管理',
+      description: 'X-UI 代理管理界面',
+      icon: Icons.vpn_key,
+      route: '/xui',
+      color: Colors.orange,
+    ),
+    WebViewMenuItem(
+      title: 'FRPS 管理',
+      description: 'FRP 服务端管理界面',
+      icon: Icons.cloud,
+      route: '/frps',
+      color: Colors.purple,
+    ),
   ];
 
   @override

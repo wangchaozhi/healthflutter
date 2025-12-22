@@ -10,6 +10,8 @@ import 'screens/music_share_screen.dart';
 import 'screens/shared_music_player_screen.dart';
 import 'screens/ariang_screen.dart';
 import 'screens/filebrowser_screen.dart';
+import 'screens/xui_screen.dart';
+import 'screens/frps_screen.dart';
 import 'screens/webview_menu_screen.dart';
 import 'services/api_service.dart';
 import 'services/cache_service.dart';
@@ -65,6 +67,8 @@ class MyApp extends StatelessWidget {
         '/webview_menu': (context) => const WebViewMenuScreen(),
         '/ariang': (context) => const AriaNgScreen(),
         '/filebrowser': (context) => const FileBrowserScreen(),
+        '/xui': (context) => const XuiScreen(),
+        '/frps': (context) => const FrpsScreen(),
       },
       onGenerateRoute: (settings) {
         // 处理动态路由，如 /share/:token
