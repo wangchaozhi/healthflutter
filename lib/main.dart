@@ -8,10 +8,11 @@ import 'screens/file_transfer_screen.dart';
 import 'screens/music_player_screen.dart';
 import 'screens/music_share_screen.dart';
 import 'screens/shared_music_player_screen.dart';
+import 'screens/ariang_screen.dart';
 import 'services/api_service.dart';
 import 'services/cache_service.dart';
 import 'services/tray_service.dart';
-import 'dart:io';
+import 'utils/platform_utils.dart';
 
 void main() async {
   // 确保Flutter绑定初始化
@@ -20,8 +21,8 @@ void main() async {
   // 初始化缓存服务
   await CacheService().init();
   
-  // 在桌面平台初始化托盘功能
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+  // 在桌面平台初始化托盘功能（排除 Web 平台）
+  if (isDesktop) {
     await TrayService().init();
   }
   
@@ -59,6 +60,7 @@ class MyApp extends StatelessWidget {
         '/file_transfer': (context) => const FileTransferScreen(),
         '/music_player': (context) => const MusicPlayerScreen(),
         '/music_shares': (context) => const MusicShareScreen(),
+        '/ariang': (context) => const AriaNgScreen(),
       },
       onGenerateRoute: (settings) {
         // 处理动态路由，如 /share/:token

@@ -583,6 +583,9 @@ func main() {
 	mux.HandleFunc("/api/lyrics/get", handlers.LyricsGetByMusicIDHandler) // 公开访问，支持分享页面
 	mux.HandleFunc("/api/lyrics/delete", authMiddleware(handlers.LyricsDeleteHandler))
 
+	// AriaNg 静态文件服务（放在最后，避免与 API 路由冲突）
+	mux.Handle("/ariang/", http.StripPrefix("/ariang/", ariangHandler()))
+
 	handler := corsMiddleware(mux)
 
 	port := os.Getenv("PORT")

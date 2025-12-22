@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"html/template"
 	"log"
 	"net/http"
 	"strconv"
@@ -321,8 +320,8 @@ func ShareWebPlayerHandler(w http.ResponseWriter, r *http.Request) {
 		MusicID:   music.ID,
 	}
 
-	// 解析并渲染模板
-	tmpl, err := template.ParseFiles("templates/share_player.html")
+	// 解析并渲染模板（从嵌入的文件系统）
+	tmpl, err := getTemplate("share_player.html")
 	if err != nil {
 		log.Printf("解析模板失败: %v", err)
 		http.Error(w, "服务器错误", http.StatusInternalServerError)
