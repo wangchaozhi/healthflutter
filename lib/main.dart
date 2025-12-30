@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/login_screen.dart';
@@ -17,11 +18,27 @@ import 'screens/tools_menu_screen.dart';
 import 'services/api_service.dart';
 import 'services/cache_service.dart';
 import 'services/tray_service.dart';
+import 'services/single_instance_service.dart';
 import 'utils/platform_utils.dart';
 
 void main() async {
   // 确保Flutter绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 在桌面平台检查单实例
+  if (isDesktop) {
+    final singleInstance = SingleInstanceService();
+    final isFirstInstance = await singleInstance.ensureSingleInstance();
+    
+    if (!isFirstInstance) {
+      // 已有实例运行，退出当前实例
+      debugPrint('检测到已有实例运行，退出当前实例');
+      exit(0);
+    }
+    
+    // 注册应用生命周期监听，在退出时清理资源
+    WidgetsBinding.instance.addObserver(_AppLifecycleObserver());
+  }
   
   // 初始化缓存服务
   await CacheService().init();
@@ -32,6 +49,17 @@ void main() async {
   }
   
   runApp(const MyApp());
+}
+
+// 应用生命周期观察者，用于清理单实例资源
+class _AppLifecycleObserver extends WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached) {
+      // 应用即将退出，清理单实例资源
+      SingleInstanceService().dispose();
+    }
+  }
 }
 
 class MyApp extends StatelessWidget {

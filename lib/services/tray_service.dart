@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:system_tray/system_tray.dart';
 import 'package:window_manager/window_manager.dart';
+import 'single_instance_service.dart';
 
 class TrayService extends WindowListener {
   static final TrayService _instance = TrayService._internal();
@@ -180,6 +181,9 @@ class TrayService extends WindowListener {
   /// 退出应用
   Future<void> _exitApp() async {
     try {
+      // 清理单实例资源
+      await SingleInstanceService().dispose();
+      
       if (_systemTray != null) {
         await _systemTray!.destroy();
       }
