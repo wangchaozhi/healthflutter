@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-  "fmt"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -68,16 +68,16 @@ type ActivityResponse struct {
 }
 
 type ActivityStats struct {
-	TotalAuto               int    `json:"total_auto"`                 // 总计自动次数
-	TotalManual             int    `json:"total_manual"`               // 总计手动次数
-	YearAuto                int    `json:"year_auto"`                  // 今年自动次数
-	YearManual              int    `json:"year_manual"`                // 今年手动次数
-	MonthAuto               int    `json:"month_auto"`                 // 本月自动次数
-	MonthManual             int    `json:"month_manual"`               // 本月手动次数
-	EarliestDate            string `json:"earliest_date"`              // 最早记录日期
-	LastTwoInterval         int    `json:"last_two_interval"`          // 最后两次间隔天数，-1表示不足2条
-	LastTwoAutoInterval     int    `json:"last_two_auto_interval"`     // 最后两个自动间隔天数
-	LastTwoManualInterval   int    `json:"last_two_manual_interval"`   // 最后两个手动间隔天数
+	TotalAuto             int    `json:"total_auto"`               // 总计自动次数
+	TotalManual           int    `json:"total_manual"`             // 总计手动次数
+	YearAuto              int    `json:"year_auto"`                // 今年自动次数
+	YearManual            int    `json:"year_manual"`              // 今年手动次数
+	MonthAuto             int    `json:"month_auto"`               // 本月自动次数
+	MonthManual           int    `json:"month_manual"`             // 本月手动次数
+	EarliestDate          string `json:"earliest_date"`            // 最早记录日期
+	LastTwoInterval       int    `json:"last_two_interval"`        // 最后两次间隔天数，-1表示不足2条
+	LastTwoAutoInterval   int    `json:"last_two_auto_interval"`   // 最后两个自动间隔天数
+	LastTwoManualInterval int    `json:"last_two_manual_interval"` // 最后两个手动间隔天数
 }
 
 func initDB() {
@@ -370,7 +370,7 @@ func listActivitiesHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Sscanf(userID, "%d", &userIDInt)
 
 	rows, err := database.DB.Query(
-		"SELECT id, user_id, record_date, record_time, week_day, duration, remark, COALESCE(tag, 'manual'), created_at FROM health_activities WHERE user_id = ? ORDER BY record_date DESC, record_time DESC LIMIT 10",
+		"SELECT id, user_id, record_date, record_time, week_day, duration, remark, COALESCE(tag, 'manual'), created_at FROM health_activities WHERE user_id = ? ORDER BY record_date DESC, record_time DESC LIMIT 5",
 		userIDInt,
 	)
 	if err != nil {
@@ -397,10 +397,10 @@ func listActivitiesHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		
+
 		// 处理 created_at 时间：数据库存储的是 UTC，显示时转换为东八区
 		activity.CreatedAt = utils.UTCToShanghai(createdAt)
-		
+
 		activities = append(activities, activity)
 	}
 
@@ -669,7 +669,7 @@ func main() {
 	mux.HandleFunc("/api/lyrics/search", authMiddleware(handlers.LyricsSearchHandler))
 	mux.HandleFunc("/api/lyrics/bind", authMiddleware(handlers.LyricsBindHandler))
 	mux.HandleFunc("/api/lyrics/unbind", authMiddleware(handlers.LyricsUnbindHandler)) // 解除绑定
-	mux.HandleFunc("/api/lyrics/get", handlers.LyricsGetByMusicIDHandler) // 公开访问，支持分享页面
+	mux.HandleFunc("/api/lyrics/get", handlers.LyricsGetByMusicIDHandler)              // 公开访问，支持分享页面
 	mux.HandleFunc("/api/lyrics/delete", authMiddleware(handlers.LyricsDeleteHandler))
 
 	// AriaNg 静态文件服务（放在最后，避免与 API 路由冲突）
@@ -684,4 +684,4 @@ func main() {
 
 	log.Printf("服务器启动在端口 %s", port)
 	log.Fatal(http.ListenAndServe(":"+port, handler))
-  }
+}
