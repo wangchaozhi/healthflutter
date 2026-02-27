@@ -363,9 +363,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 return Stack(
                   children: [
                     Center(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(16.0),
-                        child: ConstrainedBox(
+                      child: RefreshIndicator(
+                        onRefresh: _loadData,
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(16.0),
+                          child: ConstrainedBox(
                           constraints: BoxConstraints(maxWidth: maxWidth),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -844,6 +847,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ),
+                    ),
                     ),
                     // 记录表单弹窗
                     if (_isRecordFormVisible)
