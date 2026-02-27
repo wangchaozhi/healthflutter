@@ -412,6 +412,41 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildNumberWithUnit(
+    String number, {
+    String? unit,
+    required Color numberColor,
+    double numberSize = 22,
+    double unitSize = 20,
+    FontWeight fontWeight = FontWeight.bold,
+    TextAlign? textAlign,
+  }) {
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: number,
+            style: TextStyle(
+              fontSize: numberSize,
+              fontWeight: fontWeight,
+              color: numberColor,
+            ),
+          ),
+          if (unit != null && unit.isNotEmpty)
+            TextSpan(
+              text: unit,
+              style: TextStyle(
+                fontSize: unitSize,
+                fontWeight: fontWeight,
+                color: numberColor,
+              ),
+            ),
+        ],
+      ),
+      textAlign: textAlign,
+    );
+  }
+
   Widget _buildStatChip(String label, String value, Color accent, IconData icon) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -423,7 +458,13 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(label, style: TextStyle(fontSize: 13, color: _colors.textSecondary)),
-            Text('$value 次', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: accent)),
+            _buildNumberWithUnit(
+              value,
+              unit: ' 次',
+              numberColor: accent,
+              numberSize: 22,
+              unitSize: 20,
+            ),
           ],
         ),
       ],
@@ -653,10 +694,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                     child: Column(
                                       children: [
-                                        Text('${_stats?['year_auto'] ?? 0}', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _colors.accentBlue)),
+                                        _buildNumberWithUnit(
+                                          '${_stats?['year_auto'] ?? 0}',
+                                          unit: ' 次',
+                                          numberColor: _colors.accentBlue,
+                                          numberSize: 24,
+                                          unitSize: 20,
+                                        ),
                                         Text('今年自动', style: TextStyle(fontSize: 13, color: _colors.textSecondary)),
                                         const SizedBox(height: 10),
-                                        Text('${_stats?['month_auto'] ?? 0}', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _colors.accentBlue)),
+                                        _buildNumberWithUnit(
+                                          '${_stats?['month_auto'] ?? 0}',
+                                          unit: ' 次',
+                                          numberColor: _colors.accentBlue,
+                                          numberSize: 24,
+                                          unitSize: 20,
+                                        ),
                                         Text('本月自动', style: TextStyle(fontSize: 13, color: _colors.textSecondary)),
                                       ],
                                     ),
@@ -673,10 +726,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                     child: Column(
                                       children: [
-                                        Text('${_stats?['year_manual'] ?? 0}', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _colors.accentOrange)),
+                                        _buildNumberWithUnit(
+                                          '${_stats?['year_manual'] ?? 0}',
+                                          unit: ' 次',
+                                          numberColor: _colors.accentOrange,
+                                          numberSize: 24,
+                                          unitSize: 20,
+                                        ),
                                         Text('今年手动', style: TextStyle(fontSize: 13, color: _colors.textSecondary)),
                                         const SizedBox(height: 10),
-                                        Text('${_stats?['month_manual'] ?? 0}', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _colors.accentOrange)),
+                                        _buildNumberWithUnit(
+                                          '${_stats?['month_manual'] ?? 0}',
+                                          unit: ' 次',
+                                          numberColor: _colors.accentOrange,
+                                          numberSize: 24,
+                                          unitSize: 20,
+                                        ),
                                         Text('本月手动', style: TextStyle(fontSize: 13, color: _colors.textSecondary)),
                                       ],
                                     ),
@@ -710,56 +775,24 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   color: _colors.textSecondary,
                                                 ),
                                               ),
-                                              Text.rich(
-                                                TextSpan(
-                                                  children: [
-                                                    TextSpan(
-                                                      text: value,
-                                                      style: TextStyle(
-                                                        fontSize: 18,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: numberColor,
-                                                      ),
-                                                    ),
-                                                  if (!isNa)
-                                                    TextSpan(
-                                                      text: ' 天',
-                                                      style: TextStyle(
-                                                        fontSize: 18,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: _colors.textSecondary,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
+                                              _buildNumberWithUnit(
+                                                value,
+                                                unit: isNa ? null : ' 天',
+                                                numberColor: numberColor,
+                                                numberSize: 18,
+                                                unitSize: 18,
                                               ),
                                             ],
                                           ),
                                         )
                                       : Column(
                                           children: [
-                                            Text.rich(
-                                              TextSpan(
-                                                children: [
-                                                  TextSpan(
-                                                    text: value,
-                                                    style: TextStyle(
-                                                      fontSize: 20,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: numberColor,
-                                                    ),
-                                                  ),
-                                                  if (!isNa)
-                                                    TextSpan(
-                                                      text: ' 天',
-                                                      style: TextStyle(
-                                                        fontSize: 20,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: _colors.textSecondary,
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
+                                            _buildNumberWithUnit(
+                                              value,
+                                              unit: isNa ? null : ' 天',
+                                              numberColor: numberColor,
+                                              numberSize: 20,
+                                              unitSize: 20,
                                             ),
                                             Text(
                                               label,
