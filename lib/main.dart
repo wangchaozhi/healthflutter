@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
+import 'services/theme_service.dart';
 import 'screens/douyin_parser_screen.dart';
 import 'screens/file_transfer_screen.dart';
 import 'screens/music_player_screen.dart';
@@ -42,6 +43,8 @@ void main() async {
   
   // 初始化缓存服务
   await CacheService().init();
+  // 初始化主题服务
+  await ThemeService().init();
   
   // 在桌面平台初始化托盘功能（排除 Web 平台）
   if (isDesktop) {
@@ -67,12 +70,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: '健康管理',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
+    return ListenableBuilder(
+      listenable: ThemeService(),
+      builder: (context, _) {
+        final themeService = ThemeService();
+        return MaterialApp(
+          title: '健康管理',
+          theme: themeService.themeData,
       locale: const Locale('zh', 'CN'),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -109,6 +113,8 @@ class MyApp extends StatelessWidget {
           );
         }
         return null;
+      },
+        );
       },
     );
   }
