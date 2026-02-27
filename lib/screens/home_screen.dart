@@ -104,8 +104,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final color = isAuto ? _colors.accentBlue : _colors.accentOrange;
     return Row(
       children: [
-        Text('标签', style: TextStyle(fontSize: 13, color: _colors.textSecondary)),
-        const SizedBox(width: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
