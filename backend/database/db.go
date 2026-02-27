@@ -39,6 +39,7 @@ func InitDB(dbPath string) error {
 		week_day TEXT NOT NULL,
 		duration INTEGER NOT NULL,
 		remark TEXT,
+		tag TEXT DEFAULT 'manual',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (user_id) REFERENCES users(id)
 	);`
@@ -46,6 +47,13 @@ func InitDB(dbPath string) error {
 	_, err = DB.Exec(createActivityTableSQL)
 	if err != nil {
 		return err
+	}
+
+	// 为已有表添加 tag 列（若不存在）
+	var count int
+	_ = DB.QueryRow("SELECT COUNT(*) FROM pragma_table_info('health_activities') WHERE name='tag'").Scan(&count)
+	if count == 0 {
+		_, _ = DB.Exec("ALTER TABLE health_activities ADD COLUMN tag TEXT DEFAULT 'manual'")
 	}
 
          // 初始化抖音文件表

@@ -142,6 +142,7 @@ class ApiService {
     required String recordTime,
     required int duration,
     String remark = '',
+    String tag = 'manual', // auto=自动, manual=手动
   }) async {
     try {
       final token = await getToken();
@@ -160,6 +161,7 @@ class ApiService {
           'record_time': recordTime,
           'duration': duration,
           'remark': remark,
+          'tag': tag,
         }),
       );
       

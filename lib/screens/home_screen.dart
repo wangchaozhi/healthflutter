@@ -24,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   TimeOfDay _selectedTime = TimeOfDay.now();
   int _duration = 1;
   String _remark = '';
+  String _recordTag = 'manual'; // manual=手动, auto=自动，默认手动
   final TextEditingController _durationController = TextEditingController();
   final TextEditingController _remarkController = TextEditingController();
   
@@ -94,6 +95,36 @@ class _HomeScreenState extends State<HomeScreen> {
     return weekdays[date.weekday % 7];
   }
 
+  Widget _buildTagChip(bool isAuto) {
+    final isAutoColor = Colors.blue;
+    final manualColor = Colors.orange;
+    return Row(
+      children: [
+        const Text('标签：'),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: isAuto ? isAutoColor.withOpacity(0.15) : manualColor.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isAuto ? isAutoColor : manualColor,
+              width: 1,
+            ),
+          ),
+          child: Text(
+            isAuto ? '自动' : '手动',
+            style: TextStyle(
+              color: isAuto ? isAutoColor : manualColor,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _selectDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -132,6 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedTime = TimeOfDay.now();
       _duration = 1; // 默认值为1
       _remark = '';
+      _recordTag = 'manual'; // 默认手动
       _durationController.text = '1'; // 设置默认值
       _remarkController.clear();
     });
@@ -161,6 +193,7 @@ class _HomeScreenState extends State<HomeScreen> {
           recordTime: recordTime,
           duration: _duration,
           remark: _remark,
+          tag: _recordTag,
         );
 
         if (mounted) {
@@ -372,39 +405,123 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            // 总计活动次数
+                            // 从最早到当前总次数
+                            Builder(
+                              builder: (context) {
+                                final earliest = _stats?['earliest_date']?.toString();
+                                final total = ((_stats?['total_auto'] ?? 0) as num).toInt() + ((_stats?['total_manual'] ?? 0) as num).toInt();
+                                final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                                if (earliest != null && earliest.isNotEmpty && total > 0) {
+                                  return Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(12),
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [Colors.indigo.shade50, Colors.purple.shade50],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.indigo.shade200, width: 1.5),
+                                    ),
+                                    child: Text.rich(
+                                      TextSpan(
+                                        children: [
+                                          TextSpan(
+                                            text: '从 $earliest 至 $today 共计 ',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              color: Colors.indigo.shade800,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          TextSpan(
+                                            text: '$total',
+                                            style: TextStyle(
+                                              fontSize: 26,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.indigo.shade700,
+                                            ),
+                                          ),
+                                          TextSpan(
+                                            text: ' 次',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              color: Colors.indigo.shade800,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              },
+                            ),
+                            // 总计活动次数（自动/手动）
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.orange.shade50,
+                                color: Colors.grey.shade100,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                 children: [
-                                  Text(
-                                    '总计活动次数：',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.grey[700],
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '累计自动 ',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                      Text(
+                                        '${_stats?['total_auto'] ?? 0}',
+                                        style: TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue.shade700,
+                                        ),
+                                      ),
+                                      Text(
+                                        ' 次',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '${_stats?['total_count'] ?? 0}',
-                                    style: const TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.orange,
-                                    ),
-                                  ),
-                                  const Text(
-                                    ' 次',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '累计手动 ',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                      Text(
+                                        '${_stats?['total_manual'] ?? 0}',
+                                        style: TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.orange.shade700,
+                                        ),
+                                      ),
+                                      Text(
+                                        ' 次',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -416,30 +533,180 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Column(
                                   children: [
                                     Text(
-                                      '${_stats?['year_count'] ?? 0}',
-                                      style: const TextStyle(
-                                        fontSize: 24,
+                                      '${_stats?['year_auto'] ?? 0}',
+                                      style: TextStyle(
+                                        fontSize: 22,
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.green,
+                                        color: Colors.blue.shade700,
                                       ),
                                     ),
-                                    const Text('今年总活动次数'),
+                                    Text(
+                                      '今年自动',
+                                      style: TextStyle(color: Colors.grey[700]),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      '${_stats?['month_auto'] ?? 0}',
+                                      style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue.shade700,
+                                      ),
+                                    ),
+                                    Text(
+                                      '本月自动',
+                                      style: TextStyle(color: Colors.grey[700]),
+                                    ),
                                   ],
                                 ),
                                 Column(
                                   children: [
                                     Text(
-                                      '${_stats?['month_count'] ?? 0}',
-                                      style: const TextStyle(
-                                        fontSize: 24,
+                                      '${_stats?['year_manual'] ?? 0}',
+                                      style: TextStyle(
+                                        fontSize: 22,
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.blue,
+                                        color: Colors.orange.shade700,
                                       ),
                                     ),
-                                    const Text('本月活动次数'),
+                                    Text(
+                                      '今年手动',
+                                      style: TextStyle(color: Colors.grey[700]),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      '${_stats?['month_manual'] ?? 0}',
+                                      style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange.shade700,
+                                      ),
+                                    ),
+                                    Text(
+                                      '本月手动',
+                                      style: TextStyle(color: Colors.grey[700]),
+                                    ),
                                   ],
                                 ),
                               ],
+                            ),
+                            const SizedBox(height: 12),
+                            // 最后两次间隔天数（手机端竖向排列避免拥挤）
+                            Builder(
+                              builder: (context) {
+                                final lastTwo = _stats?['last_two_interval'];
+                                final lastTwoAuto = _stats?['last_two_auto_interval'];
+                                final lastTwoManual = _stats?['last_two_manual_interval'];
+                                String formatInterval(dynamic v) =>
+                                    (v != null && v is num && (v as num) >= 0) ? '$v' : '—';
+                                final isNarrow = MediaQuery.of(context).size.width < 400;
+                                Widget buildItem(String label, String value, Color color) {
+                                  final isNa = value == '—';
+                                  final numberColor = isNa ? Colors.grey.shade600 : color;
+                                  return isNarrow
+                                      ? Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 4),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                label,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey[700],
+                                                ),
+                                              ),
+                                              Text.rich(
+                                                TextSpan(
+                                                  children: [
+                                                    TextSpan(
+                                                      text: value,
+                                                      style: TextStyle(
+                                                        fontSize: 18,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: numberColor,
+                                                      ),
+                                                    ),
+                                                  if (!isNa)
+                                                    TextSpan(
+                                                      text: ' 天',
+                                                      style: TextStyle(
+                                                        fontSize: 18,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: Colors.grey[700],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      : Column(
+                                          children: [
+                                            Text.rich(
+                                              TextSpan(
+                                                children: [
+                                                  TextSpan(
+                                                    text: value,
+                                                    style: TextStyle(
+                                                      fontSize: 20,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: numberColor,
+                                                    ),
+                                                  ),
+                                                  if (!isNa)
+                                                    TextSpan(
+                                                      text: ' 天',
+                                                      style: TextStyle(
+                                                        fontSize: 20,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: Colors.grey[700],
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                            Text(
+                                              label,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: Colors.grey[700],
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                }
+                                return Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: isNarrow
+                                      ? Column(
+                                          children: [
+                                            buildItem(
+                                                '最后两次间隔', formatInterval(lastTwo), Colors.purple.shade700),
+                                            buildItem(
+                                                '最后两自动间隔', formatInterval(lastTwoAuto), Colors.blue.shade700),
+                                            buildItem(
+                                                '最后两手动间隔', formatInterval(lastTwoManual), Colors.orange.shade700),
+                                          ],
+                                        )
+                                      : Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                          children: [
+                                            buildItem(
+                                                '最后两次间隔', formatInterval(lastTwo), Colors.purple.shade700),
+                                            buildItem(
+                                                '最后两自动间隔', formatInterval(lastTwoAuto), Colors.blue.shade700),
+                                            buildItem(
+                                                '最后两手动间隔', formatInterval(lastTwoManual), Colors.orange.shade700),
+                                          ],
+                                        ),
+                                );
+                              },
                             ),
                             const SizedBox(height: 16),
                             SizedBox(
@@ -544,6 +811,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           Text('持续时间：${item['duration']} 分钟'),
                                           const SizedBox(height: 4),
                                           Text('星期：${item['week_day']}'),
+                                          const SizedBox(height: 4),
+                                          _buildTagChip((item['tag'] ?? 'manual') == 'auto'),
                                           if (item['remark'] != null && item['remark'].toString().isNotEmpty) ...[
                                             const SizedBox(height: 4),
                                             Text('备注：${item['remark']}'),
@@ -653,6 +922,39 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 keyboardType: TextInputType.number,
                                 onChanged: _onDurationInput,
+                              ),
+                              const SizedBox(height: 16),
+                              // 标签选择（自动/手动）
+                              Row(
+                                children: [
+                                  const Text('标签：'),
+                                  const SizedBox(width: 16),
+                                  ChoiceChip(
+                                    label: const Text('手动'),
+                                    selected: _recordTag == 'manual',
+                                    selectedColor: Colors.orange.shade100,
+                                    labelStyle: TextStyle(
+                                      color: _recordTag == 'manual' ? Colors.orange.shade800 : null,
+                                      fontWeight: _recordTag == 'manual' ? FontWeight.w600 : null,
+                                    ),
+                                    onSelected: (selected) {
+                                      if (selected) setState(() => _recordTag = 'manual');
+                                    },
+                                  ),
+                                  const SizedBox(width: 12),
+                                  ChoiceChip(
+                                    label: const Text('自动'),
+                                    selected: _recordTag == 'auto',
+                                    selectedColor: Colors.blue.shade100,
+                                    labelStyle: TextStyle(
+                                      color: _recordTag == 'auto' ? Colors.blue.shade800 : null,
+                                      fontWeight: _recordTag == 'auto' ? FontWeight.w600 : null,
+                                    ),
+                                    onSelected: (selected) {
+                                      if (selected) setState(() => _recordTag = 'auto');
+                                    },
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 16),
                               // 备注

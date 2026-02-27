@@ -47,6 +47,7 @@ type HealthActivity struct {
 	WeekDay    string `json:"week_day"`    // 星期几
 	Duration   int    `json:"duration"`    // 持续时间（分钟）
 	Remark     string `json:"remark"`      // 备注
+	Tag        string `json:"tag"`         // 标签: auto=自动, manual=手动
 	CreatedAt  string `json:"created_at"`
 }
 
@@ -55,6 +56,7 @@ type CreateActivityRequest struct {
 	RecordTime string `json:"record_time"`
 	Duration   int    `json:"duration"`
 	Remark     string `json:"remark"`
+	Tag        string `json:"tag"` // 标签: auto=自动, manual=手动
 }
 
 type ActivityResponse struct {
@@ -66,9 +68,16 @@ type ActivityResponse struct {
 }
 
 type ActivityStats struct {
-	TotalCount int `json:"total_count"` // 总计活动次数
-	YearCount  int `json:"year_count"`  // 今年活动次数
-	MonthCount int `json:"month_count"` // 本月活动次数
+	TotalAuto               int    `json:"total_auto"`                 // 总计自动次数
+	TotalManual             int    `json:"total_manual"`               // 总计手动次数
+	YearAuto                int    `json:"year_auto"`                  // 今年自动次数
+	YearManual              int    `json:"year_manual"`                // 今年手动次数
+	MonthAuto               int    `json:"month_auto"`                 // 本月自动次数
+	MonthManual             int    `json:"month_manual"`               // 本月手动次数
+	EarliestDate            string `json:"earliest_date"`              // 最早记录日期
+	LastTwoInterval         int    `json:"last_two_interval"`          // 最后两次间隔天数，-1表示不足2条
+	LastTwoAutoInterval     int    `json:"last_two_auto_interval"`     // 最后两个自动间隔天数
+	LastTwoManualInterval   int    `json:"last_two_manual_interval"`   // 最后两个手动间隔天数
 }
 
 func initDB() {
@@ -301,14 +310,20 @@ func createActivityHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 默认手动
+	tag := req.Tag
+	if tag != "auto" && tag != "manual" {
+		tag = "manual"
+	}
+
 	var userIDInt int
 	fmt.Sscanf(userID, "%d", &userIDInt)
 
 	// 插入记录，存储 UTC 时间
 	createdAtUTC := utils.NowUTCString()
 	result, err := database.DB.Exec(
-		"INSERT INTO health_activities (user_id, record_date, record_time, week_day, duration, remark, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		userIDInt, req.RecordDate, req.RecordTime, weekDay, req.Duration, req.Remark, createdAtUTC,
+		"INSERT INTO health_activities (user_id, record_date, record_time, week_day, duration, remark, tag, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		userIDInt, req.RecordDate, req.RecordTime, weekDay, req.Duration, req.Remark, tag, createdAtUTC,
 	)
 	if err != nil {
 		http.Error(w, "创建记录失败", http.StatusInternalServerError)
@@ -326,6 +341,7 @@ func createActivityHandler(w http.ResponseWriter, r *http.Request) {
 		WeekDay:    weekDay,
 		Duration:   req.Duration,
 		Remark:     req.Remark,
+		Tag:        tag,
 		CreatedAt:  utils.UTCToShanghai(createdAtUTC), // 转换为东八区显示
 	}
 
@@ -354,7 +370,7 @@ func listActivitiesHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Sscanf(userID, "%d", &userIDInt)
 
 	rows, err := database.DB.Query(
-		"SELECT id, user_id, record_date, record_time, week_day, duration, remark, created_at FROM health_activities WHERE user_id = ? ORDER BY record_date DESC, record_time DESC LIMIT 10",
+		"SELECT id, user_id, record_date, record_time, week_day, duration, remark, COALESCE(tag, 'manual'), created_at FROM health_activities WHERE user_id = ? ORDER BY record_date DESC, record_time DESC LIMIT 10",
 		userIDInt,
 	)
 	if err != nil {
@@ -375,6 +391,7 @@ func listActivitiesHandler(w http.ResponseWriter, r *http.Request) {
 			&activity.WeekDay,
 			&activity.Duration,
 			&activity.Remark,
+			&activity.Tag,
 			&createdAt,
 		)
 		if err != nil {
@@ -451,6 +468,47 @@ func deleteActivityHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// calcLastTwoIntervalDays 计算最后两条记录的间隔天数，tag 为空查全部，auto/manual 按标签过滤，不足2条返回-1
+func calcLastTwoIntervalDays(userID int, tagFilter string) int {
+	query := "SELECT record_date FROM health_activities WHERE user_id = ?"
+	args := []interface{}{userID}
+	if tagFilter == "auto" {
+		query += " AND tag = 'auto'"
+	} else if tagFilter == "manual" {
+		query += " AND (COALESCE(tag, 'manual') = 'manual')"
+	}
+	query += " ORDER BY record_date DESC, record_time DESC LIMIT 2"
+
+	rows, err := database.DB.Query(query, args...)
+	if err != nil {
+		return -1
+	}
+	defer rows.Close()
+
+	var dates []string
+	for rows.Next() {
+		var d string
+		if err := rows.Scan(&d); err != nil {
+			return -1
+		}
+		dates = append(dates, d)
+	}
+	if len(dates) < 2 {
+		return -1
+	}
+
+	t1, err1 := time.Parse("2006-01-02", dates[0])
+	t2, err2 := time.Parse("2006-01-02", dates[1])
+	if err1 != nil || err2 != nil {
+		return -1
+	}
+	days := int(t1.Sub(t2).Hours() / 24)
+	if days < 0 {
+		days = -days
+	}
+	return days
+}
+
 // 获取健康活动统计
 func getActivityStatsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -471,31 +529,62 @@ func getActivityStatsHandler(w http.ResponseWriter, r *http.Request) {
 	currentYear := now.Format("2006")
 	currentMonth := now.Format("2006-01")
 
-	// 查询总计总数
-	var totalCount int
+	// 查询总计（自动/手动，旧数据 NULL 视为手动）
+	var totalAuto, totalManual int
 	database.DB.QueryRow(
-		"SELECT COUNT(*) FROM health_activities WHERE user_id = ?",
+		"SELECT COUNT(*) FROM health_activities WHERE user_id = ? AND tag = 'auto'",
 		userIDInt,
-	).Scan(&totalCount)
-
-	// 查询今年总数
-	var yearCount int
+	).Scan(&totalAuto)
 	database.DB.QueryRow(
-		"SELECT COUNT(*) FROM health_activities WHERE user_id = ? AND record_date LIKE ?",
+		"SELECT COUNT(*) FROM health_activities WHERE user_id = ? AND (COALESCE(tag, 'manual') = 'manual')",
+		userIDInt,
+	).Scan(&totalManual)
+
+	// 查询最早记录日期
+	var earliestDate string
+	database.DB.QueryRow(
+		"SELECT MIN(record_date) FROM health_activities WHERE user_id = ?",
+		userIDInt,
+	).Scan(&earliestDate)
+
+	// 查询今年（自动/手动）
+	var yearAuto, yearManual int
+	database.DB.QueryRow(
+		"SELECT COUNT(*) FROM health_activities WHERE user_id = ? AND record_date LIKE ? AND tag = 'auto'",
 		userIDInt, currentYear+"%",
-	).Scan(&yearCount)
-
-	// 查询本月总数
-	var monthCount int
+	).Scan(&yearAuto)
 	database.DB.QueryRow(
-		"SELECT COUNT(*) FROM health_activities WHERE user_id = ? AND record_date LIKE ?",
+		"SELECT COUNT(*) FROM health_activities WHERE user_id = ? AND record_date LIKE ? AND (COALESCE(tag, 'manual') = 'manual')",
+		userIDInt, currentYear+"%",
+	).Scan(&yearManual)
+
+	// 查询本月（自动/手动）
+	var monthAuto, monthManual int
+	database.DB.QueryRow(
+		"SELECT COUNT(*) FROM health_activities WHERE user_id = ? AND record_date LIKE ? AND tag = 'auto'",
 		userIDInt, currentMonth+"%",
-	).Scan(&monthCount)
+	).Scan(&monthAuto)
+	database.DB.QueryRow(
+		"SELECT COUNT(*) FROM health_activities WHERE user_id = ? AND record_date LIKE ? AND (COALESCE(tag, 'manual') = 'manual')",
+		userIDInt, currentMonth+"%",
+	).Scan(&monthManual)
+
+	// 最后两次间隔天数（全部、自动、手动），-1 表示不足2条
+	lastTwoInterval := calcLastTwoIntervalDays(userIDInt, "")
+	lastTwoAutoInterval := calcLastTwoIntervalDays(userIDInt, "auto")
+	lastTwoManualInterval := calcLastTwoIntervalDays(userIDInt, "manual")
 
 	stats := ActivityStats{
-		TotalCount: totalCount,
-		YearCount:  yearCount,
-		MonthCount: monthCount,
+		TotalAuto:             totalAuto,
+		TotalManual:           totalManual,
+		YearAuto:              yearAuto,
+		YearManual:            yearManual,
+		MonthAuto:             monthAuto,
+		MonthManual:           monthManual,
+		EarliestDate:          earliestDate,
+		LastTwoInterval:       lastTwoInterval,
+		LastTwoAutoInterval:   lastTwoAutoInterval,
+		LastTwoManualInterval: lastTwoManualInterval,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

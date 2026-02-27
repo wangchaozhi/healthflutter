@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 class ApiConfig {
   // API基础URL配置
   // 开发环境：本地IP或localhost
-  static const String _devBaseUrl = 'http://192.168.31.252:8080/api';
+
+  // static const String _devBaseUrl = 'http://192.168.31.252:8080/api';
+  static const String _devBaseUrl = 'http://172.16.5.163:8080/api';
   // 生产环境：公网服务器IP
   static const String _prodBaseUrl = 'http://107.182.17.20:8080/api';
   
