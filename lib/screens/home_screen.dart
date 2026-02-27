@@ -692,9 +692,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                             buildItem(
                                                 '最后两次间隔', formatInterval(lastTwo), Colors.purple.shade700),
                                             buildItem(
-                                                '最后自动间隔', formatInterval(lastTwoAuto), Colors.blue.shade700),
+                                                '最后两次自动间隔', formatInterval(lastTwoAuto), Colors.blue.shade700),
                                             buildItem(
-                                                '最后手动间隔', formatInterval(lastTwoManual), Colors.orange.shade700),
+                                                '最后两次手动间隔', formatInterval(lastTwoManual), Colors.orange.shade700),
                                           ],
                                         )
                                       : Row(
@@ -703,9 +703,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                             buildItem(
                                                 '最后两次间隔', formatInterval(lastTwo), Colors.purple.shade700),
                                             buildItem(
-                                                '最后自动间隔', formatInterval(lastTwoAuto), Colors.blue.shade700),
+                                                '最后两次自动间隔', formatInterval(lastTwoAuto), Colors.blue.shade700),
                                             buildItem(
-                                                '最后手动间隔', formatInterval(lastTwoManual), Colors.orange.shade700),
+                                                '最后两次手动间隔', formatInterval(lastTwoManual), Colors.orange.shade700),
                                           ],
                                         ),
                                 );
