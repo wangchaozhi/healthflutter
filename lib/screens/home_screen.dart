@@ -1171,10 +1171,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                     selected: _recordTag == 'manual',
                                     selectedColor: _colors.accentOrange.withOpacity(0.25),
                                     labelStyle: TextStyle(
-                                      color: _recordTag == 'manual' ? _colors.accentOrange : _colors.textSecondary,
+                                      color: _colors.accentOrange,
                                       fontWeight: _recordTag == 'manual' ? FontWeight.w600 : null,
                                     ),
-                                    side: BorderSide(color: _recordTag == 'manual' ? _colors.accentOrange : Colors.black26),
+                                    side: BorderSide(
+                                      color: _recordTag == 'manual'
+                                          ? _colors.accentOrange
+                                          : _colors.accentOrange.withOpacity(0.45),
+                                    ),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                     onSelected: (selected) {
                                       if (selected) setState(() => _recordTag = 'manual');
@@ -1186,10 +1190,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                     selected: _recordTag == 'auto',
                                     selectedColor: _colors.accentBlue.withOpacity(0.25),
                                     labelStyle: TextStyle(
-                                      color: _recordTag == 'auto' ? _colors.accentBlue : _colors.textSecondary,
+                                      color: _colors.accentBlue,
                                       fontWeight: _recordTag == 'auto' ? FontWeight.w600 : null,
                                     ),
-                                    side: BorderSide(color: _recordTag == 'auto' ? _colors.accentBlue : Colors.black26),
+                                    side: BorderSide(
+                                      color: _recordTag == 'auto'
+                                          ? _colors.accentBlue
+                                          : _colors.accentBlue.withOpacity(0.45),
+                                    ),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                     onSelected: (selected) {
                                       if (selected) setState(() => _recordTag = 'auto');
