@@ -469,6 +469,46 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  DateTime? _parseRecordDateTime(dynamic item) {
+    if (item is! Map) return null;
+    final date = item['record_date']?.toString();
+    final time = item['record_time']?.toString();
+    if (date == null || date.isEmpty || time == null || time.isEmpty) return null;
+    final normalized = time.length == 5 ? '$time:00' : time;
+    return DateTime.tryParse('$date $normalized');
+  }
+
+  List<DateTime> _sortedRecordTimes({String? tag}) {
+    final result = <DateTime>[];
+    for (final item in _healthList) {
+      if (tag != null && (item['tag']?.toString() ?? 'manual') != tag) continue;
+      final dt = _parseRecordDateTime(item);
+      if (dt != null) result.add(dt);
+    }
+    result.sort((a, b) => b.compareTo(a));
+    return result;
+  }
+
+  String _formatDays(Duration duration) {
+    final days = duration.inMinutes / (60.0 * 24.0);
+    final text = days.toStringAsFixed(1);
+    return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
+  }
+
+  String _daysBetween(List<DateTime> list) {
+    if (list.length < 2) return '—';
+    final diff = list[0].difference(list[1]);
+    if (diff.isNegative) return '—';
+    return _formatDays(diff);
+  }
+
+  String _daysFromLastToNow(List<DateTime> list) {
+    if (list.isEmpty) return '—';
+    final diff = DateTime.now().difference(list[0]);
+    if (diff.isNegative) return '—';
+    return _formatDays(diff);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -748,14 +788,16 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                             const SizedBox(height: 12),
-                            // 最后两次间隔天数（手机端竖向排列避免拥挤）
+                            // 最后两次间隔（天，手机端竖向排列避免拥挤）
                             Builder(
                               builder: (context) {
-                                final lastTwo = _stats?['last_two_interval'];
-                                final lastTwoAuto = _stats?['last_two_auto_interval'];
-                                final lastTwoManual = _stats?['last_two_manual_interval'];
-                                String formatInterval(dynamic v) =>
-                                    (v != null && v is num && (v as num) >= 0) ? '$v' : '—';
+                                final allTimes = _sortedRecordTimes();
+                                final autoTimes = _sortedRecordTimes(tag: 'auto');
+                                final manualTimes = _sortedRecordTimes(tag: 'manual');
+                                final lastTwo = _daysBetween(allTimes);
+                                final lastTwoAuto = _daysBetween(autoTimes);
+                                final lastTwoManual = _daysBetween(manualTimes);
+                                final lastToNow = _daysFromLastToNow(allTimes);
                                 final isNarrow = MediaQuery.of(context).size.width < 400;
                                 Widget buildItem(String label, String value, Color color) {
                                   final isNa = value == '—';
@@ -813,22 +855,42 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ? Column(
                                           children: [
                                             buildItem(
-                                                '最后两次间隔', formatInterval(lastTwo), _colors.primary),
+                                                '最后一次距今', lastToNow, _colors.primaryLight),
                                             buildItem(
-                                                '最后两次自动间隔', formatInterval(lastTwoAuto), _colors.accentBlue),
+                                                '最后两次间隔', lastTwo, _colors.primary),
                                             buildItem(
-                                                '最后两次手动间隔', formatInterval(lastTwoManual), _colors.accentOrange),
+                                                '最后两次自动间隔', lastTwoAuto, _colors.accentBlue),
+                                            buildItem(
+                                                '最后两次手动间隔', lastTwoManual, _colors.accentOrange),
                                           ],
                                         )
-                                      : Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                      : Column(
                                           children: [
-                                            buildItem(
-                                                '最后两次间隔', formatInterval(lastTwo), _colors.primary),
-                                            buildItem(
-                                                '最后两次自动间隔', formatInterval(lastTwoAuto), _colors.accentBlue),
-                                            buildItem(
-                                                '最后两次手动间隔', formatInterval(lastTwoManual), _colors.accentOrange),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: buildItem(
+                                                      '最后一次距今', lastToNow, _colors.primaryLight),
+                                                ),
+                                                Expanded(
+                                                  child: buildItem(
+                                                      '最后两次间隔', lastTwo, _colors.primary),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 10),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: buildItem(
+                                                      '最后两次自动间隔', lastTwoAuto, _colors.accentBlue),
+                                                ),
+                                                Expanded(
+                                                  child: buildItem(
+                                                      '最后两次手动间隔', lastTwoManual, _colors.accentOrange),
+                                                ),
+                                              ],
+                                            ),
                                           ],
                                         ),
                                 );
