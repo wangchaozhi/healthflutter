@@ -713,47 +713,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                 children: [
-                                  _buildStatChip('累计自动', '${_stats?['total_auto'] ?? 0}', _colors.accentBlue, Icons.auto_awesome),
-                                  Container(width: 1, height: 32, color: Colors.black.withOpacity(0.06)),
                                   _buildStatChip('累计手动', '${_stats?['total_manual'] ?? 0}', _colors.accentOrange, Icons.touch_app),
+                                  Container(width: 1, height: 32, color: Colors.black.withOpacity(0.06)),
+                                  _buildStatChip('累计自动', '${_stats?['total_auto'] ?? 0}', _colors.accentBlue, Icons.auto_awesome),
                                 ],
                               ),
                             ),
                             const SizedBox(height: 16),
                             Row(
                               children: [
-                                Expanded(
-                                  child: Container(
-                                    padding: const EdgeInsets.all(14),
-                                    decoration: BoxDecoration(
-                                      color: _colors.accentBlue.withOpacity(0.08),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: _colors.accentBlue.withOpacity(0.2)),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        _buildNumberWithUnit(
-                                          '${_stats?['year_auto'] ?? 0}',
-                                          unit: ' 次',
-                                          numberColor: _colors.accentBlue,
-                                          numberSize: 24,
-                                          unitSize: 20,
-                                        ),
-                                        Text('今年自动', style: TextStyle(fontSize: 13, color: _colors.textSecondary)),
-                                        const SizedBox(height: 10),
-                                        _buildNumberWithUnit(
-                                          '${_stats?['month_auto'] ?? 0}',
-                                          unit: ' 次',
-                                          numberColor: _colors.accentBlue,
-                                          numberSize: 24,
-                                          unitSize: 20,
-                                        ),
-                                        Text('本月自动', style: TextStyle(fontSize: 13, color: _colors.textSecondary)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Container(
                                     padding: const EdgeInsets.all(14),
@@ -781,6 +749,38 @@ class _HomeScreenState extends State<HomeScreen> {
                                           unitSize: 20,
                                         ),
                                         Text('本月手动', style: TextStyle(fontSize: 13, color: _colors.textSecondary)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: _colors.accentBlue.withOpacity(0.08),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: _colors.accentBlue.withOpacity(0.2)),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        _buildNumberWithUnit(
+                                          '${_stats?['year_auto'] ?? 0}',
+                                          unit: ' 次',
+                                          numberColor: _colors.accentBlue,
+                                          numberSize: 24,
+                                          unitSize: 20,
+                                        ),
+                                        Text('今年自动', style: TextStyle(fontSize: 13, color: _colors.textSecondary)),
+                                        const SizedBox(height: 10),
+                                        _buildNumberWithUnit(
+                                          '${_stats?['month_auto'] ?? 0}',
+                                          unit: ' 次',
+                                          numberColor: _colors.accentBlue,
+                                          numberSize: 24,
+                                          unitSize: 20,
+                                        ),
+                                        Text('本月自动', style: TextStyle(fontSize: 13, color: _colors.textSecondary)),
                                       ],
                                     ),
                                   ),
@@ -859,9 +859,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                             buildItem(
                                                 '最后两次间隔', lastTwo, _colors.primary),
                                             buildItem(
-                                                '最后两次自动间隔', lastTwoAuto, _colors.accentBlue),
-                                            buildItem(
                                                 '最后两次手动间隔', lastTwoManual, _colors.accentOrange),
+                                            buildItem(
+                                                '最后两次自动间隔', lastTwoAuto, _colors.accentBlue),
                                           ],
                                         )
                                       : Column(
@@ -883,11 +883,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                               children: [
                                                 Expanded(
                                                   child: buildItem(
-                                                      '最后两次自动间隔', lastTwoAuto, _colors.accentBlue),
+                                                      '最后两次手动间隔', lastTwoManual, _colors.accentOrange),
                                                 ),
                                                 Expanded(
                                                   child: buildItem(
-                                                      '最后两次手动间隔', lastTwoManual, _colors.accentOrange),
+                                                      '最后两次自动间隔', lastTwoAuto, _colors.accentBlue),
                                                 ),
                                               ],
                                             ),
