@@ -469,44 +469,34 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  DateTime? _parseRecordDateTime(dynamic item) {
-    if (item is! Map) return null;
-    final date = item['record_date']?.toString();
-    final time = item['record_time']?.toString();
-    if (date == null || date.isEmpty || time == null || time.isEmpty) return null;
-    final normalized = time.length == 5 ? '$time:00' : time;
-    return DateTime.tryParse('$date $normalized');
-  }
-
-  List<DateTime> _sortedRecordTimes({String? tag}) {
-    final result = <DateTime>[];
-    for (final item in _healthList) {
-      if (tag != null && (item['tag']?.toString() ?? 'manual') != tag) continue;
-      final dt = _parseRecordDateTime(item);
-      if (dt != null) result.add(dt);
-    }
-    result.sort((a, b) => b.compareTo(a));
-    return result;
-  }
-
-  String _formatDays(Duration duration) {
-    final days = duration.inMinutes / (60.0 * 24.0);
+  String _formatDayNumber(num value) {
+    final days = value.toDouble();
     final text = days.toStringAsFixed(1);
     return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
   }
 
-  String _daysBetween(List<DateTime> list) {
-    if (list.length < 2) return '—';
-    final diff = list[0].difference(list[1]);
-    if (diff.isNegative) return '—';
-    return _formatDays(diff);
+  String _readStatDays(List<String> keys) {
+    if (_stats == null) return '—';
+    for (final key in keys) {
+      final dynamic raw = _stats?[key];
+      if (raw == null) continue;
+      if (raw is num && raw >= 0) return _formatDayNumber(raw);
+      final parsed = num.tryParse(raw.toString());
+      if (parsed != null && parsed >= 0) return _formatDayNumber(parsed);
+    }
+    return '—';
   }
 
-  String _daysFromLastToNow(List<DateTime> list) {
-    if (list.isEmpty) return '—';
-    final diff = DateTime.now().difference(list[0]);
-    if (diff.isNegative) return '—';
-    return _formatDays(diff);
+  String _readStatMetric(List<String> keys) {
+    if (_stats == null) return '—';
+    for (final key in keys) {
+      final dynamic raw = _stats?[key];
+      if (raw == null) continue;
+      if (raw is num && raw >= 0) return _formatDayNumber(raw);
+      final parsed = num.tryParse(raw.toString());
+      if (parsed != null && parsed >= 0) return _formatDayNumber(parsed);
+    }
+    return '—';
   }
 
   @override
@@ -719,6 +709,77 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ],
                               ),
                             ),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: _colors.surfaceLight,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.black.withOpacity(0.04)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildNumberWithUnit(
+                                      _readStatMetric(['manual_period_days']),
+                                      unit: ' 天/次',
+                                      numberColor: _colors.accentOrange,
+                                      numberSize: 18,
+                                      unitSize: 14,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _buildNumberWithUnit(
+                                      _readStatMetric(['auto_period_days']),
+                                      unit: ' 天/次',
+                                      numberColor: _colors.accentBlue,
+                                      numberSize: 18,
+                                      unitSize: 14,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _buildNumberWithUnit(
+                                      _readStatMetric(['total_period_days']),
+                                      unit: ' 天/次',
+                                      numberColor: _colors.primary,
+                                      numberSize: 18,
+                                      unitSize: 14,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6, bottom: 2),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '手动周期',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 12, color: _colors.textSecondary),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      '自动周期',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 12, color: _colors.textSecondary),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      '总周期',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 12, color: _colors.textSecondary),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                             const SizedBox(height: 16),
                             Row(
                               children: [
@@ -791,13 +852,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             // 最后两次间隔（天，手机端竖向排列避免拥挤）
                             Builder(
                               builder: (context) {
-                                final allTimes = _sortedRecordTimes();
-                                final autoTimes = _sortedRecordTimes(tag: 'auto');
-                                final manualTimes = _sortedRecordTimes(tag: 'manual');
-                                final lastTwo = _daysBetween(allTimes);
-                                final lastTwoAuto = _daysBetween(autoTimes);
-                                final lastTwoManual = _daysBetween(manualTimes);
-                                final lastToNow = _daysFromLastToNow(allTimes);
+                                final lastTwo = _readStatDays(['last_interval_days', 'last_two_interval']);
+                                final lastTwoAuto = _readStatDays(
+                                    ['last_auto_interval_days', 'last_two_auto_interval']);
+                                final lastTwoManual = _readStatDays(
+                                    ['last_manual_interval_days', 'last_two_manual_interval']);
+                                final lastToNow =
+                                    _readStatDays(['last_to_now_days', 'last_to_now_interval']);
                                 final isNarrow = MediaQuery.of(context).size.width < 400;
                                 Widget buildItem(String label, String value, Color color) {
                                   final isNa = value == '—';
