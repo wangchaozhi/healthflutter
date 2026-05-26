@@ -1,4 +1,3 @@
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
@@ -263,6 +262,15 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
     await _uploadDebounce.execute(
       action: () async {
         try {
+          dynamic webFile;
+
+          if (kIsWeb) {
+            webFile = await web_upload.pickWebFile();
+            if (webFile == null) {
+              return;
+            }
+          }
+
           final token = await ApiService.getToken();
           if (token == null) {
             if (mounted) {
@@ -273,106 +281,64 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
             return;
           }
 
+          if (kIsWeb) {
+            if (mounted) {
+              setState(() {
+                _isUploading = true;
+              });
+            }
+
+            final result = await web_upload.uploadWebFile(
+              webFile,
+              token,
+              ApiConfig.baseUrl,
+            );
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(result['message'] ?? '操作完成')),
+              );
+              if (result['success'] == true) {
+                await _loadFiles(page: _currentPage);
+              }
+            }
+            return;
+          }
+
           // 打开文件选择器（此时不显示loading）
           FilePickerResult? result = await FilePicker.platform.pickFiles(
             type: FileType.any,
             allowMultiple: false,
           );
 
-          // 用户选择了文件后，才显示loading
-          if (result != null) {
-            debugPrint('用户选择了文件，显示loading');
-            if (mounted) {
-              setState(() {
-                _isUploading = true;
-              });
-            }
-            if (kIsWeb) {
-              // Web平台使用不同的上传方式
-              if (result.files.single.bytes != null) {
-                // Web平台上传逻辑
-                final token = await ApiService.getToken();
-                if (token == null) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('请先登录')),
-                    );
-                  }
-                  return;
-                }
-
-                // 创建multipart request
-                var request = http.MultipartRequest(
-                  'POST',
-                  Uri.parse('${ApiConfig.baseUrl}/file/upload'),
-                );
-                request.headers['Authorization'] = 'Bearer $token';
-                request.files.add(
-                  http.MultipartFile.fromBytes(
-                    'file',
-                    result.files.single.bytes!,
-                    filename: result.files.single.name,
-                  ),
-                );
-
-                // 发送请求
-                var streamedResponse = await request.send();
-                var response = await http.Response.fromStream(streamedResponse);
-
-                debugPrint('Web上传响应状态码: ${response.statusCode}');
-                if (response.statusCode == 200) {
-                  final data = jsonDecode(utf8.decode(response.bodyBytes));
-                  debugPrint('Web上传成功: $data');
-                  if (data['success'] == true) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('上传成功')),
-                      );
-                    }
-                    await _loadFiles(page: _currentPage);
-                  } else {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(data['message'] ?? '上传失败')),
-                      );
-                    }
-                  }
-                } else {
-                  debugPrint('Web上传失败');
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('上传失败: ${response.statusCode}')),
-                    );
-                  }
-                }
-              }
-            } else {
-              // 非Web平台
-              if (result.files.single.path != null) {
-                final token = await ApiService.getToken();
-                if (token != null) {
-                  await file_upload.uploadFileFromPlatformFile(
-                    result.files.single,
-                    token,
-                    ApiConfig.baseUrl,
-                    (success, message) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(message)),
-                        );
-                        if (success) {
-                          _loadFiles(page: _currentPage);
-                        }
-                      }
-                    },
-                    (progress) {
-                      // 不再更新上传进度
-                    },
-                  );
-                }
-              }
-            }
+          if (result == null || result.files.single.path == null) {
+            return;
           }
+
+          if (mounted) {
+            setState(() {
+              _isUploading = true;
+            });
+          }
+
+          await file_upload.uploadFileFromPlatformFile(
+            result.files.single,
+            token,
+            ApiConfig.baseUrl,
+            (success, message) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(message)),
+                );
+                if (success) {
+                  _loadFiles(page: _currentPage);
+                }
+              }
+            },
+            (progress) {
+              // 不再更新上传进度
+            },
+          );
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -380,15 +346,10 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
             );
           }
         } finally {
-          // 无论成功还是失败，都关闭loading
-          debugPrint('上传流程结束，关闭loading');
           if (mounted) {
             setState(() {
               _isUploading = false;
             });
-            debugPrint('loading已关闭: _isUploading = false');
-          } else {
-            debugPrint('Widget已卸载，无法关闭loading');
           }
         }
       },
@@ -612,7 +573,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           );
           if (mounted) {
             // 判断是否是移动端
-            final isMobile = Platform.isAndroid || Platform.isIOS;
+            final isMobile = platform.isMobile();
             
             if (isMobile) {
               // 移动端：简单提示，不显示路径和打开目录按钮
@@ -718,7 +679,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
                                   style: BorderStyle.solid,
                                 ),
                                 borderRadius: BorderRadius.circular(8),
-                                color: Colors.grey.withOpacity(0.05),
+                                color: Colors.grey.withValues(alpha: 0.05),
                               ),
                               child: Center(
                                 child: Column(
@@ -787,7 +748,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
                                           style: BorderStyle.solid,
                                         ),
                                         borderRadius: BorderRadius.circular(8),
-                                        color: Colors.grey.withOpacity(0.05),
+                                        color: Colors.grey.withValues(alpha: 0.05),
                                       ),
                                       child: Center(
                                         child: Column(
@@ -1017,4 +978,3 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
     );
   }
 }
-
