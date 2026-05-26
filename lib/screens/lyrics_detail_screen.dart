@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
-import '../services/api_service.dart';
+import '../services/token_storage.dart';
 import '../services/music_player_service.dart';
 import '../services/cache_service.dart';
 import '../widgets/lyrics_widget.dart';
@@ -93,7 +93,7 @@ class _LyricsDetailScreenState extends State<LyricsDetailScreen> {
 
       // 缓存不存在，从服务器获取
       debugPrint('🌐 从服务器加载歌词: $musicId');
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) return;
 
       final response = await http.get(

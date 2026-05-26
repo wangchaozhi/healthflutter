@@ -5,10 +5,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:desktop_drop/desktop_drop.dart';
-import '../services/api_service.dart';
+import '../services/token_storage.dart';
 import '../config/api_config.dart';
 import '../utils/debounce.dart';
-import '../utils/platform_io.dart' if (dart.library.html) '../utils/platform_stub.dart' as platform;
+import '../utils/platform_utils.dart' as platform;
 import '../utils/file_upload_io.dart' if (dart.library.html) '../utils/file_upload_stub.dart' as file_upload;
 import '../utils/web_drag_drop_stub.dart' if (dart.library.html) '../utils/web_drag_drop.dart';
 import '../utils/web_file_upload_stub.dart' if (dart.library.html) '../utils/web_file_upload.dart' as web_upload;
@@ -61,7 +61,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
     });
 
     try {
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -133,7 +133,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
     await _uploadDebounce.execute(
       action: () async {
         try {
-          final token = await ApiService.getToken();
+          final token = await TokenStorage.getToken();
           if (token == null) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -194,7 +194,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
     await _uploadDebounce.execute(
       action: () async {
         try {
-          final token = await ApiService.getToken();
+          final token = await TokenStorage.getToken();
           if (token == null) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -271,7 +271,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
             }
           }
 
-          final token = await ApiService.getToken();
+          final token = await TokenStorage.getToken();
           if (token == null) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -363,7 +363,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
     await _clipboardDebounce.execute(
       action: () async {
         try {
-          final token = await ApiService.getToken();
+          final token = await TokenStorage.getToken();
           if (token == null) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -399,7 +399,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
   // 保存文本内容（共用方法）
   Future<void> _saveTextContent(String content) async {
     try {
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -471,7 +471,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
     await _deleteDebounce.execute(
       action: () async {
         try {
-          final token = await ApiService.getToken();
+          final token = await TokenStorage.getToken();
           if (token == null) {
             return;
           }
@@ -515,7 +515,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
     });
 
     try {
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -573,7 +573,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           );
           if (mounted) {
             // 判断是否是移动端
-            final isMobile = platform.isMobile();
+            final isMobile = platform.isMobile;
             
             if (isMobile) {
               // 移动端：简单提示，不显示路径和打开目录按钮
@@ -716,7 +716,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
                           Builder(
                             builder: (context) {
                               // 在非Web平台检查是否为桌面端
-                              if (platform.isMobile()) {
+                              if (platform.isMobile) {
                                 return const SizedBox.shrink();
                               }
                               return Column(

@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../config/api_config.dart';
-import '../services/api_service.dart';
+import '../services/token_storage.dart';
 import '../services/music_player_service.dart';
 import '../services/cache_service.dart';
 import '../utils/debounce.dart';
@@ -111,7 +111,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
     });
 
     try {
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) {
         return;
       }
@@ -198,7 +198,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
           );
 
           if (result != null) {
-            final token = await ApiService.getToken();
+            final token = await TokenStorage.getToken();
             if (token == null) {
               return;
             }
@@ -307,7 +307,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
   // 分享音乐
   Future<void> _shareMusic(int musicId) async {
     try {
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -424,7 +424,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
     await _deleteDebounce.execute(
       action: () async {
         try {
-          final token = await ApiService.getToken();
+          final token = await TokenStorage.getToken();
           if (token == null) {
             return;
           }
@@ -479,7 +479,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
   // 播放音乐
   Future<void> _playMusic(int musicId, {bool forceReplay = false}) async {
     try {
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) {
         debugPrint('Token为空，无法播放');
         return;
@@ -649,7 +649,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
 
       // 缓存不存在，从服务器获取
       debugPrint('🌐 从服务器加载歌词: $musicId');
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) return;
 
       final response = await http.get(

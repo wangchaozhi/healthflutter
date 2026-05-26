@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
+import '../services/auth_repository.dart';
 import 'home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -25,7 +25,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _checkLoginStatus() async {
-    final isLoggedIn = await ApiService.isLoggedIn();
+    final isLoggedIn = await AuthRepository.instance.isLoggedIn();
     if (isLoggedIn && mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -50,7 +50,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _isLoading = true;
     });
 
-    final result = await ApiService.register(
+    final result = await AuthRepository.instance.register(
       _usernameController.text.trim(),
       _passwordController.text,
     );
@@ -61,7 +61,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (!mounted) return;
 
-    if (result['success'] == true) {
+    if (result.isOk) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('注册成功')),
       );
@@ -70,7 +70,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message'] ?? '注册失败')),
+        SnackBar(content: Text(result.message.isEmpty ? '注册失败' : result.message)),
       );
     }
   }

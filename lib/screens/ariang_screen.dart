@@ -71,8 +71,7 @@ class _AriaNgScreenState extends State<AriaNgScreen> {
     }
 
     // Android/iOS 平台使用 WebView
-    if (_controller == null) {
-      _controller = WebViewController()
+    _controller ??= WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(
           NavigationDelegate(
@@ -102,7 +101,6 @@ class _AriaNgScreenState extends State<AriaNgScreen> {
           ),
         )
         ..loadRequest(Uri.parse(_ariangUrl));
-    }
 
     return Scaffold(
       appBar: AppBar(

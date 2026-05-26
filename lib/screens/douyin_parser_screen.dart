@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import '../services/api_service.dart';
+import '../models/douyin_file.dart';
+import '../services/douyin_repository.dart';
+import '../services/token_storage.dart';
 // 条件导入：仅在Web平台导入web_download
 import '../utils/web_download_stub.dart' if (dart.library.html) '../utils/web_download.dart' as web_download;
 import '../utils/native_download.dart' if (dart.library.html) '../utils/web_download_stub.dart' as native_download;
@@ -15,7 +17,7 @@ class DouyinParserScreen extends StatefulWidget {
 
 class _DouyinParserScreenState extends State<DouyinParserScreen> {
   final TextEditingController _inputController = TextEditingController();
-  List<Map<String, dynamic>> _fileList = [];
+  List<DouyinFile> _fileList = [];
   bool _isParsing = false;
   bool _isDownloading = false;
   bool _hasInput = false;
@@ -43,7 +45,7 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
       _isParsing = true;
     });
 
-    final result = await ApiService.douyinParsing(text);
+    final result = await DouyinRepository.instance.parse(text);
 
     setState(() {
       _isParsing = false;
@@ -51,28 +53,24 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
 
     if (!mounted) return;
 
-    if (result['success'] == true) {
+    if (result.isOk) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('解析成功')),
       );
-      // 刷新文件列表
       await _loadFileList();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message'] ?? '解析失败')),
+        SnackBar(content: Text(result.message.isEmpty ? '解析失败' : result.message)),
       );
     }
   }
 
   Future<void> _loadFileList() async {
-    final result = await ApiService.getDouyinFileList();
-    if (mounted) {
-      setState(() {
-        if (result['success'] == true) {
-          _fileList = List<Map<String, dynamic>>.from(result['list'] ?? []);
-        }
-      });
-    }
+    final result = await DouyinRepository.instance.list();
+    if (!mounted) return;
+    setState(() {
+      if (result.isOk) _fileList = result.data ?? [];
+    });
   }
 
   Future<void> _handleDownload(String id, String path, String fileName) async {
@@ -81,7 +79,7 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
     });
 
     try {
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -90,9 +88,8 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
         }
         return;
       }
-      
-      // 构建下载URL
-      final downloadUrl = await ApiService.getDownloadUrl(int.parse(id));
+
+      final downloadUrl = await DouyinRepository.instance.downloadUrl(int.parse(id));
       
       if (kIsWeb) {
         // 在Web平台，直接使用fetch API下载，避免将整个文件加载到内存
@@ -273,7 +270,7 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.grey.withOpacity(0.2),
+                            color: Colors.grey.withValues(alpha: 0.2),
                             spreadRadius: 1,
                             blurRadius: 4,
                             offset: const Offset(0, 2),
@@ -316,7 +313,7 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              file['file_name'] ?? '未知文件',
+                                              file.fileName.isEmpty ? '未知文件' : file.fileName,
                                               style: const TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.bold,
@@ -324,7 +321,7 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              '大小: ${file['file_size_str'] ?? '未知'}',
+                                              '大小: ${file.fileSizeStr.isEmpty ? '未知' : file.fileSizeStr}',
                                               style: TextStyle(
                                                 fontSize: 14,
                                                 color: Colors.grey[600],
@@ -332,7 +329,7 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              '时间: ${file['modified_time'] ?? '未知'}',
+                                              '时间: ${file.modifiedTime.isEmpty ? '未知' : file.modifiedTime}',
                                               style: TextStyle(
                                                 fontSize: 14,
                                                 color: Colors.grey[600],
@@ -346,9 +343,9 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
                                         onPressed: (_isParsing || _isDownloading)
                                             ? null
                                             : () => _handleDownload(
-                                                  file['id'].toString(),
-                                                  file['path'] ?? '',
-                                                  file['file_name'] ?? '未知文件',
+                                                  file.id.toString(),
+                                                  file.path,
+                                                  file.fileName.isEmpty ? '未知文件' : file.fileName,
                                                 ),
                                         child: const Text('下载'),
                                       ),

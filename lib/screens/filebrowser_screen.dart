@@ -73,8 +73,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
     }
 
     // Android/iOS 平台使用 WebView
-    if (_controller == null) {
-      _controller = WebViewController()
+    _controller ??= WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(
           NavigationDelegate(
@@ -104,7 +103,6 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
           ),
         )
         ..loadRequest(Uri.parse(_filebrowserUrl));
-    }
 
     return Scaffold(
       appBar: AppBar(

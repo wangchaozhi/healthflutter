@@ -1,4 +1,6 @@
-// Web platform drag and drop utilities
+// Web 平台拖拽工具，dart:html 在此文件中是必需依赖
+// ignore_for_file: deprecated_member_use, avoid_web_libraries_in_flutter
+
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 
@@ -80,7 +82,7 @@ class _WebDropZoneState extends State<WebDropZone> {
     });
 
     final dataTransfer = (e as html.MouseEvent).dataTransfer;
-    final files = dataTransfer?.files;
+    final files = dataTransfer.files;
     if (files != null && files.isNotEmpty) {
       final fileList = <html.File>[];
       for (var i = 0; i < files.length; i++) {

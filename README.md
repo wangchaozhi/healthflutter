@@ -26,8 +26,10 @@
 
 ### 前端 (Flutter)
 - **框架**: Flutter 3.10.4+
-- **状态管理**: StatefulWidget
-- **网络请求**: http
+- **状态管理**: `ChangeNotifier` 单例 Store（`ActivityStore` / `ThemeService` / `MusicPlayerService`）+ `ListenableBuilder`
+- **数据层**: 类型化 `models/` + 仓库模式（`AuthRepository` / `ActivityRepository` / `DouyinRepository`）
+- **HTTP 层**: 统一 `HttpClient`，集中 token 注入、utf8 解码、401 → 跳登录
+- **路由**: `lib/router/` 集中分发，含动态路由 `/share/:token`
 - **本地存储**: shared_preferences
 - **WebView**: webview_flutter
 - **音频播放**: audioplayers
@@ -44,11 +46,14 @@
 ```
 healthflutter/
 ├── lib/                    # Flutter 前端
-│   ├── config/            # 配置
+│   ├── config/            # 配置（API 地址等）
+│   ├── models/            # 类型化模型（Activity / ActivityStats / User / DouyinFile / ApiResult）
+│   ├── router/            # 路由集中分发（AppRouter / AppRoutes）
 │   ├── screens/           # 页面
-│   ├── services/          # 服务层
+│   ├── services/          # 仓库与 Store（HttpClient、TokenStorage、各 Repository、ActivityStore）
 │   ├── widgets/           # 组件
-│   └── utils/             # 工具类
+│   │   └── health/        # 健康模块拆分组件（DateTimeBanner / StatsCard / ActivityList / RecordFormSheet）
+│   └── utils/             # 工具类（按平台 io/stub 分发）
 ├── backend/               # Go 后端
 │   ├── handlers/          # 请求处理
 │   ├── database/          # 数据库操作

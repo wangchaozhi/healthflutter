@@ -43,7 +43,6 @@ class MusicPlayerService extends ChangeNotifier {
   
   // 播放列表回调（用于获取完整列表和Token）
   Future<void> Function()? _onPlayNext;
-  Future<void> Function()? _onPlayPrevious;
   
   // 流订阅
   StreamSubscription<Duration>? _positionSubscription;
@@ -179,7 +178,6 @@ class MusicPlayerService extends ChangeNotifier {
   }) {
     _playlist = playlist;
     _onPlayNext = onPlayNext;
-    _onPlayPrevious = onPlayPrevious;
     notifyListeners();
   }
   
@@ -334,7 +332,6 @@ class MusicPlayerService extends ChangeNotifier {
       _totalDuration = 0.0;
       _playlist.clear();
       _onPlayNext = null;
-      _onPlayPrevious = null;
       notifyListeners();
       debugPrint('🎵 播放器已停止并重置');
     } catch (e) {

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import '../config/api_config.dart';
-import '../services/api_service.dart';
+import '../services/token_storage.dart';
 import '../services/cache_service.dart';
 
 /// 歌词管理对话框
@@ -49,7 +49,7 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
   /// 检查当前歌曲是否有绑定的歌词
   Future<void> _checkCurrentLyrics() async {
     try {
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) return;
 
       final response = await http.get(
@@ -79,7 +79,7 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
     });
 
     try {
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) {
         return;
       }
@@ -157,7 +157,7 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
         });
       }
 
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -279,7 +279,7 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
   /// 绑定歌词
   Future<void> _bindLyrics(int lyricsId) async {
     try {
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) {
         return;
       }
@@ -352,7 +352,7 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
     if (confirmed != true) return;
 
     try {
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) {
         return;
       }
@@ -437,7 +437,7 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
     if (confirmed != true) return;
 
     try {
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) {
         return;
       }

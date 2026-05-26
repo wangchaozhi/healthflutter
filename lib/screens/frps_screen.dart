@@ -73,8 +73,7 @@ class _FrpsScreenState extends State<FrpsScreen> {
     }
 
     // Android/iOS 平台使用 WebView
-    if (_controller == null) {
-      _controller = WebViewController()
+    _controller ??= WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(
           NavigationDelegate(
@@ -104,7 +103,6 @@ class _FrpsScreenState extends State<FrpsScreen> {
           ),
         )
         ..loadRequest(Uri.parse(_frpsUrl));
-    }
 
     return Scaffold(
       appBar: AppBar(

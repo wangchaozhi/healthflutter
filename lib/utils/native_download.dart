@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -179,10 +178,6 @@ Future<String> downloadFileNativeWithProgress(
       }
     } else {
       throw UnsupportedError('不支持的操作系统');
-    }
-
-    if (downloadDir == null) {
-      throw Exception('无法获取下载目录');
     }
 
     // 构建文件路径

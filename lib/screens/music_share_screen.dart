@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
-import '../services/api_service.dart';
+import '../services/token_storage.dart';
 import '../utils/debounce.dart';
 
 class MusicShareScreen extends StatefulWidget {
@@ -33,7 +33,7 @@ class _MusicShareScreenState extends State<MusicShareScreen> {
     });
 
     try {
-      final token = await ApiService.getToken();
+      final token = await TokenStorage.getToken();
       if (token == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -80,7 +80,7 @@ class _MusicShareScreenState extends State<MusicShareScreen> {
     await _deleteDebounce.execute(
       action: () async {
         try {
-          final token = await ApiService.getToken();
+          final token = await TokenStorage.getToken();
           if (token == null) {
             return;
           }

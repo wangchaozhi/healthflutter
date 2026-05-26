@@ -73,8 +73,7 @@ class _XuiScreenState extends State<XuiScreen> {
     }
 
     // Android/iOS 平台使用 WebView
-    if (_controller == null) {
-      _controller = WebViewController()
+    _controller ??= WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(
           NavigationDelegate(
@@ -104,7 +103,6 @@ class _XuiScreenState extends State<XuiScreen> {
           ),
         )
         ..loadRequest(Uri.parse(_xuiUrl));
-    }
 
     return Scaffold(
       appBar: AppBar(

@@ -1,10 +1,9 @@
+// Web 平台专用，dart:html 在此文件中是必需依赖
+// ignore_for_file: deprecated_member_use, avoid_web_libraries_in_flutter
+
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
-
-// 条件导入：仅在Web平台导入dart:html
-// 在非Web平台，这些函数不会被调用（因为kIsWeb检查）
-// 但为了编译通过，我们需要使用条件导入
-import 'dart:html' as html if (dart.library.html) 'dart:html';
+import 'dart:html' as html;
 
 /// Web平台直接下载文件（使用HttpRequest，不加载到内存）
 Future<void> downloadFileWebDirect(String url, String token, String fileName) async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
+import '../services/auth_repository.dart';
+import '../services/token_storage.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -25,7 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _checkLoginStatus() async {
-    final isLoggedIn = await ApiService.isLoggedIn();
+    final isLoggedIn = await AuthRepository.instance.isLoggedIn();
     if (isLoggedIn && mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -34,11 +35,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _loadRememberedCredentials() async {
-    final credentials = await ApiService.getRememberedCredentials();
-    if (credentials['username'] != null && credentials['password'] != null) {
+    final credentials = await TokenStorage.getRememberedCredentials();
+    if (credentials.username != null && credentials.password != null) {
       setState(() {
-        _usernameController.text = credentials['username']!;
-        _passwordController.text = credentials['password']!;
+        _usernameController.text = credentials.username!;
+        _passwordController.text = credentials.password!;
         _rememberPassword = true;
       });
     }
@@ -60,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
-    final result = await ApiService.login(
+    final result = await AuthRepository.instance.login(
       _usernameController.text.trim(),
       _passwordController.text,
     );
@@ -71,18 +72,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return;
 
-    if (result['success'] == true) {
-      // 如果勾选了记住密码，保存用户名和密码
+    if (result.isOk) {
       if (_rememberPassword) {
-        await ApiService.saveRememberedCredentials(
+        await TokenStorage.saveRememberedCredentials(
           _usernameController.text.trim(),
           _passwordController.text,
         );
       } else {
-        // 如果没有勾选，清除之前保存的
-        await ApiService.clearRememberedCredentials();
+        await TokenStorage.clearRememberedCredentials();
       }
-      
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('登录成功')),
       );
@@ -91,7 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message'] ?? '登录失败')),
+        SnackBar(content: Text(result.message.isEmpty ? '登录失败' : result.message)),
       );
     }
   }
