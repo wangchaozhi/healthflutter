@@ -172,6 +172,52 @@ jobs:
           path: build/healthflutter-web-${{ github.ref_name }}.tar.gz
           retention-days: 30
 
+  deploy-web-server:
+    name: Deploy Web to Server
+    needs: build-web
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    env:
+      WEB_DEPLOY_HOST: ${{ secrets.HEALTH_WEB_HOST }}
+      WEB_DEPLOY_USER: ${{ secrets.HEALTH_WEB_USER }}
+      WEB_DEPLOY_PASSWORD: ${{ secrets.HEALTH_WEB_PASSWORD }}
+      WEB_DEPLOY_PATH: ${{ secrets.HEALTH_WEB_PATH }}
+      WEB_PACKAGE: healthflutter-web-${{ github.ref_name }}.tar.gz
+    steps:
+      - name: Download Web artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-release
+          path: web-release
+
+      - name: Install deploy tools
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Deploy Web artifact
+        run: |
+          set -euo pipefail
+
+          : "${WEB_DEPLOY_HOST:?Missing secret HEALTH_WEB_HOST}"
+          : "${WEB_DEPLOY_USER:?Missing secret HEALTH_WEB_USER}"
+          : "${WEB_DEPLOY_PASSWORD:?Missing secret HEALTH_WEB_PASSWORD}"
+
+          DEPLOY_PATH="${WEB_DEPLOY_PATH:-/opt/go/health/web}"
+          REMOTE_TMP="/tmp/${WEB_PACKAGE}"
+          SSH_OPTS="-o StrictHostKeyChecking=accept-new"
+
+          sshpass -p "$WEB_DEPLOY_PASSWORD" scp $SSH_OPTS \
+            "web-release/${WEB_PACKAGE}" \
+            "${WEB_DEPLOY_USER}@${WEB_DEPLOY_HOST}:${REMOTE_TMP}"
+
+          sshpass -p "$WEB_DEPLOY_PASSWORD" ssh $SSH_OPTS \
+            "${WEB_DEPLOY_USER}@${WEB_DEPLOY_HOST}" \
+            "mkdir -p '${DEPLOY_PATH}' \
+              && find '${DEPLOY_PATH}' -mindepth 1 -maxdepth 1 -exec rm -rf {} + \
+              && tar -xzf '${REMOTE_TMP}' -C '${DEPLOY_PATH}' \
+              && find '${DEPLOY_PATH}' -name '._*' -delete \
+              && chown -R root:root '${DEPLOY_PATH}' \
+              && rm -f '${REMOTE_TMP}'"
+
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
