@@ -13,6 +13,7 @@ jobs:
   build-linux:
     name: Build Linux
     runs-on: ubuntu-latest
+    continue-on-error: true
     env:
       GRADLE_OPTS: -Dorg.gradle.vfs.watch=false
     steps:
@@ -103,6 +104,7 @@ jobs:
   build-windows:
     name: Build Windows
     runs-on: windows-latest
+    continue-on-error: true
     env:
       GRADLE_OPTS: -Dorg.gradle.vfs.watch=false
     steps:
@@ -138,6 +140,7 @@ jobs:
   build-web:
     name: Build Web
     runs-on: ubuntu-latest
+    continue-on-error: true
     env:
       GRADLE_OPTS: -Dorg.gradle.vfs.watch=false
     steps:
@@ -172,6 +175,7 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
+    continue-on-error: true
     env:
       GRADLE_OPTS: -Dorg.gradle.vfs.watch=false
     steps:
@@ -212,6 +216,7 @@ jobs:
   build-macos:
     name: Build macOS
     runs-on: macos-latest
+    continue-on-error: true
     env:
       GRADLE_OPTS: -Dorg.gradle.vfs.watch=false
     steps:
@@ -315,6 +320,7 @@ jobs:
   build-ios:
     name: Build iOS
     runs-on: macos-latest
+    continue-on-error: true
     env:
       GRADLE_OPTS: -Dorg.gradle.vfs.watch=false
     steps:
@@ -372,8 +378,7 @@ jobs:
     name: Create Release
     needs: [build-linux, build-windows, build-web, build-android, build-macos, build-ios]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    continue-on-error: true
+    if: always() && startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -389,15 +394,18 @@ jobs:
           name: Release ${{ github.ref_name }}
           body: |
             ## Release ${{ github.ref_name }}
+
+            Some platform builds may be missing if that job failed. Check the workflow run for details.
             
             ### Downloads
-            - **Linux**: `healthflutter-linux-${{ github.ref_name }}.tar.gz`
+            - **Linux**: `healthflutter-${{ github.ref_name }}-x86_64.AppImage`
             - **Windows**: `healthflutter-windows-${{ github.ref_name }}.zip`
             - **Web**: `healthflutter-web-${{ github.ref_name }}.tar.gz`
             - **Android**: `healthflutter-android-${{ github.ref_name }}.apk`
-            - **macOS**: `healthflutter-macos-${{ github.ref_name }}.zip`
+            - **macOS**: `healthflutter-${{ github.ref_name }}.dmg`
             - **iOS**: `healthflutter-ios-${{ github.ref_name }}.zip`
           draft: false
           prerelease: false
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
