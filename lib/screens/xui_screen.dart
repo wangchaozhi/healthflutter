@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../config/api_config.dart';
 import '../utils/platform_utils.dart';
+import '../utils/webview_file_selector.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class XuiScreen extends StatefulWidget {
@@ -41,9 +42,9 @@ class _XuiScreenState extends State<XuiScreen> {
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('无法打开浏览器: $url')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('无法打开浏览器: $url')));
       }
     }
   }
@@ -56,9 +57,7 @@ class _XuiScreenState extends State<XuiScreen> {
         _openInBrowser(_xuiUrl);
       });
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('X-UI 管理'),
-        ),
+        appBar: AppBar(title: const Text('X-UI 管理')),
         body: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -73,7 +72,8 @@ class _XuiScreenState extends State<XuiScreen> {
     }
 
     // Android/iOS 平台使用 WebView
-    _controller ??= WebViewController()
+    if (_controller == null) {
+      final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(
           NavigationDelegate(
@@ -101,8 +101,12 @@ class _XuiScreenState extends State<XuiScreen> {
               });
             },
           ),
-        )
-        ..loadRequest(Uri.parse(_xuiUrl));
+        );
+
+      configureAndroidWebViewFileSelector(controller);
+      controller.loadRequest(Uri.parse(_xuiUrl));
+      _controller = controller;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -135,11 +139,7 @@ class _XuiScreenState extends State<XuiScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red,
-                  ),
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),

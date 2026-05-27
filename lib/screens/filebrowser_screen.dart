@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../config/api_config.dart';
 import '../utils/platform_utils.dart';
+import '../utils/webview_file_selector.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class FileBrowserScreen extends StatefulWidget {
@@ -41,9 +42,9 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('无法打开浏览器: $url')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('无法打开浏览器: $url')));
       }
     }
   }
@@ -56,9 +57,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
         _openInBrowser(_filebrowserUrl);
       });
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('文件浏览器'),
-        ),
+        appBar: AppBar(title: const Text('文件浏览器')),
         body: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -73,7 +72,8 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
     }
 
     // Android/iOS 平台使用 WebView
-    _controller ??= WebViewController()
+    if (_controller == null) {
+      final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(
           NavigationDelegate(
@@ -101,8 +101,12 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
               });
             },
           ),
-        )
-        ..loadRequest(Uri.parse(_filebrowserUrl));
+        );
+
+      configureAndroidWebViewFileSelector(controller);
+      controller.loadRequest(Uri.parse(_filebrowserUrl));
+      _controller = controller;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -135,11 +139,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red,
-                  ),
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),

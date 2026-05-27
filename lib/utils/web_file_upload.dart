@@ -13,7 +13,9 @@ import 'dart:convert';
 Future<dynamic> pickWebFile() async {
   final input = html.FileUploadInputElement()
     ..multiple = false
+    ..accept = '*/*'
     ..style.display = 'none';
+  input.removeAttribute('capture');
 
   html.document.body?.append(input);
 

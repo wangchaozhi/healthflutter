@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../config/api_config.dart';
 import '../utils/platform_utils.dart';
+import '../utils/webview_file_selector.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class AriaNgScreen extends StatefulWidget {
@@ -39,9 +40,9 @@ class _AriaNgScreenState extends State<AriaNgScreen> {
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('无法打开浏览器: $url')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('无法打开浏览器: $url')));
       }
     }
   }
@@ -54,9 +55,7 @@ class _AriaNgScreenState extends State<AriaNgScreen> {
         _openInBrowser(_ariangUrl);
       });
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('AriaNg 下载管理'),
-        ),
+        appBar: AppBar(title: const Text('AriaNg 下载管理')),
         body: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -71,7 +70,8 @@ class _AriaNgScreenState extends State<AriaNgScreen> {
     }
 
     // Android/iOS 平台使用 WebView
-    _controller ??= WebViewController()
+    if (_controller == null) {
+      final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(
           NavigationDelegate(
@@ -99,8 +99,12 @@ class _AriaNgScreenState extends State<AriaNgScreen> {
               });
             },
           ),
-        )
-        ..loadRequest(Uri.parse(_ariangUrl));
+        );
+
+      configureAndroidWebViewFileSelector(controller);
+      controller.loadRequest(Uri.parse(_ariangUrl));
+      _controller = controller;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -133,11 +137,7 @@ class _AriaNgScreenState extends State<AriaNgScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red,
-                  ),
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),
