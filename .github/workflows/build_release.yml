@@ -179,6 +179,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     env:
       WEB_DEPLOY_HOST: ${{ secrets.HEALTH_WEB_HOST }}
+      WEB_DEPLOY_PORT: ${{ secrets.HEALTH_WEB_PORT }}
       WEB_DEPLOY_USER: ${{ secrets.HEALTH_WEB_USER }}
       WEB_DEPLOY_PASSWORD: ${{ secrets.HEALTH_WEB_PASSWORD }}
       WEB_DEPLOY_PATH: ${{ secrets.HEALTH_WEB_PATH }}
@@ -202,14 +203,15 @@ jobs:
           : "${WEB_DEPLOY_PASSWORD:?Missing secret HEALTH_WEB_PASSWORD}"
 
           DEPLOY_PATH="${WEB_DEPLOY_PATH:-/opt/go/health/web}"
+          DEPLOY_PORT="${WEB_DEPLOY_PORT:-22}"
           REMOTE_TMP="/tmp/${WEB_PACKAGE}"
           SSH_OPTS="-o StrictHostKeyChecking=accept-new"
 
-          sshpass -p "$WEB_DEPLOY_PASSWORD" scp $SSH_OPTS \
+          sshpass -p "$WEB_DEPLOY_PASSWORD" scp $SSH_OPTS -P "$DEPLOY_PORT" \
             "web-release/${WEB_PACKAGE}" \
             "${WEB_DEPLOY_USER}@${WEB_DEPLOY_HOST}:${REMOTE_TMP}"
 
-          sshpass -p "$WEB_DEPLOY_PASSWORD" ssh $SSH_OPTS \
+          sshpass -p "$WEB_DEPLOY_PASSWORD" ssh $SSH_OPTS -p "$DEPLOY_PORT" \
             "${WEB_DEPLOY_USER}@${WEB_DEPLOY_HOST}" \
             "mkdir -p '${DEPLOY_PATH}' \
               && find '${DEPLOY_PATH}' -mindepth 1 -maxdepth 1 -exec rm -rf {} + \
