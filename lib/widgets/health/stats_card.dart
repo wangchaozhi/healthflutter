@@ -73,10 +73,11 @@ class StatsCard extends StatelessWidget {
     final total = (stats?.totalAuto ?? 0) + (stats?.totalManual ?? 0);
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-    final lastTwo = _formatStat(stats?.lastIntervalDays ?? (stats?.lastTwoInterval != null && stats!.lastTwoInterval >= 0 ? stats.lastTwoInterval : null));
-    final lastTwoAuto = _formatStat(stats?.lastAutoIntervalDays ?? (stats?.lastTwoAutoInterval != null && stats!.lastTwoAutoInterval >= 0 ? stats.lastTwoAutoInterval : null));
-    final lastTwoManual = _formatStat(stats?.lastManualIntervalDays ?? (stats?.lastTwoManualInterval != null && stats!.lastTwoManualInterval >= 0 ? stats.lastTwoManualInterval : null));
-    final lastToNow = _formatStat(stats?.lastToNowDays);
+    final s = stats;
+    final lastTwo = _formatStat(s?.lastIntervalDays ?? (s != null && s.lastTwoInterval >= 0 ? s.lastTwoInterval : null));
+    final lastTwoAuto = _formatStat(s?.lastAutoIntervalDays ?? (s != null && s.lastTwoAutoInterval >= 0 ? s.lastTwoAutoInterval : null));
+    final lastTwoManual = _formatStat(s?.lastManualIntervalDays ?? (s != null && s.lastTwoManualInterval >= 0 ? s.lastTwoManualInterval : null));
+    final lastToNow = _formatStat(s?.lastToNowDays);
 
     final isNarrow = MediaQuery.of(context).size.width < 400;
 
