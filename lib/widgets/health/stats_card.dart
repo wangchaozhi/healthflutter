@@ -73,10 +73,10 @@ class StatsCard extends StatelessWidget {
     final total = (stats?.totalAuto ?? 0) + (stats?.totalManual ?? 0);
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-    final lastTwo = _formatStat(stats?.lastTwoInterval);
-    final lastTwoAuto = _formatStat(stats?.lastTwoAutoInterval);
-    final lastTwoManual = _formatStat(stats?.lastTwoManualInterval);
-    final lastToNow = _formatStat(null);
+    final lastTwo = _formatStat(stats?.lastIntervalDays ?? (stats?.lastTwoInterval != null && stats!.lastTwoInterval >= 0 ? stats.lastTwoInterval : null));
+    final lastTwoAuto = _formatStat(stats?.lastAutoIntervalDays ?? (stats?.lastTwoAutoInterval != null && stats!.lastTwoAutoInterval >= 0 ? stats.lastTwoAutoInterval : null));
+    final lastTwoManual = _formatStat(stats?.lastManualIntervalDays ?? (stats?.lastTwoManualInterval != null && stats!.lastTwoManualInterval >= 0 ? stats.lastTwoManualInterval : null));
+    final lastToNow = _formatStat(stats?.lastToNowDays);
 
     final isNarrow = MediaQuery.of(context).size.width < 400;
 
@@ -199,7 +199,7 @@ class StatsCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: _buildNumberWithUnit(
-                    _formatStat(null),
+                    _formatStat(stats?.manualPeriodDays),
                     unit: ' 天/次',
                     numberColor: colors.accentOrange,
                     numberSize: 18,
@@ -209,7 +209,7 @@ class StatsCard extends StatelessWidget {
                 ),
                 Expanded(
                   child: _buildNumberWithUnit(
-                    _formatStat(null),
+                    _formatStat(stats?.autoPeriodDays),
                     unit: ' 天/次',
                     numberColor: colors.accentBlue,
                     numberSize: 18,
@@ -219,7 +219,7 @@ class StatsCard extends StatelessWidget {
                 ),
                 Expanded(
                   child: _buildNumberWithUnit(
-                    _formatStat(null),
+                    _formatStat(stats?.totalPeriodDays),
                     unit: ' 天/次',
                     numberColor: colors.primary,
                     numberSize: 18,

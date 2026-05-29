@@ -68,16 +68,26 @@ type ActivityResponse struct {
 }
 
 type ActivityStats struct {
-	TotalAuto             int    `json:"total_auto"`               // 总计自动次数
-	TotalManual           int    `json:"total_manual"`             // 总计手动次数
-	YearAuto              int    `json:"year_auto"`                // 今年自动次数
-	YearManual            int    `json:"year_manual"`              // 今年手动次数
-	MonthAuto             int    `json:"month_auto"`               // 本月自动次数
-	MonthManual           int    `json:"month_manual"`             // 本月手动次数
-	EarliestDate          string `json:"earliest_date"`            // 最早记录日期
-	LastTwoInterval       int    `json:"last_two_interval"`        // 最后两次间隔天数，-1表示不足2条
-	LastTwoAutoInterval   int    `json:"last_two_auto_interval"`   // 最后两个自动间隔天数
-	LastTwoManualInterval int    `json:"last_two_manual_interval"` // 最后两个手动间隔天数
+	TotalAuto              int      `json:"total_auto"`               // 总计自动次数
+	TotalManual            int      `json:"total_manual"`             // 总计手动次数
+	YearAuto               int      `json:"year_auto"`                // 今年自动次数
+	YearManual             int      `json:"year_manual"`              // 今年手动次数
+	MonthAuto              int      `json:"month_auto"`               // 本月自动次数
+	MonthManual            int      `json:"month_manual"`             // 本月手动次数
+	AutoFrequencyPerDay    float64  `json:"auto_frequency_per_day"`   // 自动频率（次/天）
+	ManualFrequencyPerDay  float64  `json:"manual_frequency_per_day"` // 手动频率（次/天）
+	TotalFrequencyPerDay   float64  `json:"total_frequency_per_day"`  // 总频率（次/天）
+	AutoPeriodDays         float64  `json:"auto_period_days"`         // 自动周期（天/次）
+	ManualPeriodDays       float64  `json:"manual_period_days"`       // 手动周期（天/次）
+	TotalPeriodDays        float64  `json:"total_period_days"`        // 总周期（天/次）
+	EarliestDate           string   `json:"earliest_date"`            // 最早记录日期
+	LastTwoInterval        int      `json:"last_two_interval"`        // 最后两次间隔天数，-1表示不足2条
+	LastTwoAutoInterval    int      `json:"last_two_auto_interval"`   // 最后两个自动间隔天数
+	LastTwoManualInterval  int      `json:"last_two_manual_interval"` // 最后两个手动间隔天数
+	LastIntervalDays       *float64 `json:"last_interval_days,omitempty"`        // 最后两次间隔天数（小数）
+	LastAutoIntervalDays   *float64 `json:"last_auto_interval_days,omitempty"`   // 最后两次自动间隔天数（小数）
+	LastManualIntervalDays *float64 `json:"last_manual_interval_days,omitempty"` // 最后两次手动间隔天数（小数）
+	LastToNowDays          *float64 `json:"last_to_now_days,omitempty"`          // 最后一次距今天数（小数）
 }
 
 func initDB() {
@@ -509,6 +519,133 @@ func calcLastTwoIntervalDays(userID int, tagFilter string) int {
 	return days
 }
 
+func roundToOneDecimal(v float64) float64 {
+	return float64(int(v*10+0.5)) / 10
+}
+
+func parseRecordDateTime(date, t string) (time.Time, error) {
+	if len(t) == 5 {
+		t += ":00"
+	}
+	return time.ParseInLocation("2006-01-02 15:04:05", date+" "+t, time.Local)
+}
+
+func calcRangeDays(userID int, tagFilter string) float64 {
+	query := "SELECT record_date, record_time FROM health_activities WHERE user_id = ?"
+	args := []interface{}{userID}
+	if tagFilter == "auto" {
+		query += " AND tag = 'auto'"
+	} else if tagFilter == "manual" {
+		query += " AND (COALESCE(tag, 'manual') = 'manual')"
+	}
+
+	var minDate, minTime string
+	if err := database.DB.QueryRow(query+" ORDER BY record_date ASC, record_time ASC LIMIT 1", args...).Scan(&minDate, &minTime); err != nil {
+		return 1
+	}
+	var maxDate, maxTime string
+	if err := database.DB.QueryRow(query+" ORDER BY record_date DESC, record_time DESC LIMIT 1", args...).Scan(&maxDate, &maxTime); err != nil {
+		return 1
+	}
+	minDT, err1 := parseRecordDateTime(minDate, minTime)
+	maxDT, err2 := parseRecordDateTime(maxDate, maxTime)
+	if err1 != nil || err2 != nil {
+		return 1
+	}
+	spanDays := maxDT.Sub(minDT).Hours() / 24.0
+	if spanDays <= 0 {
+		spanDays = 1
+	}
+	return spanDays
+}
+
+func calcFrequencyPerDayByRange(total int, spanDays float64) float64 {
+	if total <= 0 {
+		return 0
+	}
+	if spanDays <= 0 {
+		spanDays = 1
+	}
+	return roundToOneDecimal(float64(total) / spanDays)
+}
+
+func calcPeriodDaysByRange(total int, spanDays float64) float64 {
+	if total <= 0 {
+		return 0
+	}
+	if spanDays <= 0 {
+		spanDays = 1
+	}
+	return roundToOneDecimal(spanDays / float64(total))
+}
+
+// calcLastTwoIntervalDaysFloat 计算最后两条记录的间隔天数（小数），不足2条返回 nil
+func calcLastTwoIntervalDaysFloat(userID int, tagFilter string) *float64 {
+	query := "SELECT record_date, record_time FROM health_activities WHERE user_id = ?"
+	args := []interface{}{userID}
+	if tagFilter == "auto" {
+		query += " AND tag = 'auto'"
+	} else if tagFilter == "manual" {
+		query += " AND (COALESCE(tag, 'manual') = 'manual')"
+	}
+	query += " ORDER BY record_date DESC, record_time DESC LIMIT 2"
+
+	rows, err := database.DB.Query(query, args...)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	type pair struct {
+		date string
+		t    string
+	}
+	var items []pair
+	for rows.Next() {
+		var p pair
+		if err := rows.Scan(&p.date, &p.t); err != nil {
+			return nil
+		}
+		items = append(items, p)
+	}
+	if len(items) < 2 {
+		return nil
+	}
+	t1, err1 := parseRecordDateTime(items[0].date, items[0].t)
+	t2, err2 := parseRecordDateTime(items[1].date, items[1].t)
+	if err1 != nil || err2 != nil {
+		return nil
+	}
+	days := t1.Sub(t2).Hours() / 24.0
+	if days < 0 {
+		days = -days
+	}
+	v := roundToOneDecimal(days)
+	return &v
+}
+
+// calcLastToNowDaysFloat 计算最后一次距今的天数（小数），无记录返回 nil
+func calcLastToNowDaysFloat(userID int) *float64 {
+	var date, t string
+	err := database.DB.QueryRow(
+		"SELECT record_date, record_time FROM health_activities WHERE user_id = ? ORDER BY record_date DESC, record_time DESC LIMIT 1",
+		userID,
+	).Scan(&date, &t)
+	if err != nil {
+		return nil
+	}
+	last, err := parseRecordDateTime(date, t)
+	if err != nil {
+		return nil
+	}
+	days := time.Since(last).Hours() / 24.0
+	if days < 0 {
+		return nil
+	}
+	v := roundToOneDecimal(days)
+	return &v
+}
+
 // 获取健康活动统计
 func getActivityStatsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -574,17 +711,44 @@ func getActivityStatsHandler(w http.ResponseWriter, r *http.Request) {
 	lastTwoAutoInterval := calcLastTwoIntervalDays(userIDInt, "auto")
 	lastTwoManualInterval := calcLastTwoIntervalDays(userIDInt, "manual")
 
+	// 精确小数间隔 & 距今
+	lastIntervalDays := calcLastTwoIntervalDaysFloat(userIDInt, "")
+	lastAutoIntervalDays := calcLastTwoIntervalDaysFloat(userIDInt, "auto")
+	lastManualIntervalDays := calcLastTwoIntervalDaysFloat(userIDInt, "manual")
+	lastToNowDays := calcLastToNowDaysFloat(userIDInt)
+
+	// 周期/频率统计
+	totalRangeDays := calcRangeDays(userIDInt, "")
+	autoRangeDays := calcRangeDays(userIDInt, "auto")
+	manualRangeDays := calcRangeDays(userIDInt, "manual")
+	autoFrequencyPerDay := calcFrequencyPerDayByRange(totalAuto, autoRangeDays)
+	manualFrequencyPerDay := calcFrequencyPerDayByRange(totalManual, manualRangeDays)
+	totalFrequencyPerDay := calcFrequencyPerDayByRange(totalAuto+totalManual, totalRangeDays)
+	autoPeriodDays := calcPeriodDaysByRange(totalAuto, autoRangeDays)
+	manualPeriodDays := calcPeriodDaysByRange(totalManual, manualRangeDays)
+	totalPeriodDays := calcPeriodDaysByRange(totalAuto+totalManual, totalRangeDays)
+
 	stats := ActivityStats{
-		TotalAuto:             totalAuto,
-		TotalManual:           totalManual,
-		YearAuto:              yearAuto,
-		YearManual:            yearManual,
-		MonthAuto:             monthAuto,
-		MonthManual:           monthManual,
-		EarliestDate:          earliestDate,
-		LastTwoInterval:       lastTwoInterval,
-		LastTwoAutoInterval:   lastTwoAutoInterval,
-		LastTwoManualInterval: lastTwoManualInterval,
+		TotalAuto:              totalAuto,
+		TotalManual:            totalManual,
+		YearAuto:               yearAuto,
+		YearManual:             yearManual,
+		MonthAuto:              monthAuto,
+		MonthManual:            monthManual,
+		AutoFrequencyPerDay:    autoFrequencyPerDay,
+		ManualFrequencyPerDay:  manualFrequencyPerDay,
+		TotalFrequencyPerDay:   totalFrequencyPerDay,
+		AutoPeriodDays:         autoPeriodDays,
+		ManualPeriodDays:       manualPeriodDays,
+		TotalPeriodDays:        totalPeriodDays,
+		EarliestDate:           earliestDate,
+		LastTwoInterval:        lastTwoInterval,
+		LastTwoAutoInterval:    lastTwoAutoInterval,
+		LastTwoManualInterval:  lastTwoManualInterval,
+		LastIntervalDays:       lastIntervalDays,
+		LastAutoIntervalDays:   lastAutoIntervalDays,
+		LastManualIntervalDays: lastManualIntervalDays,
+		LastToNowDays:          lastToNowDays,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
