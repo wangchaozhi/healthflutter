@@ -220,6 +220,65 @@ jobs:
               && chown -R root:root '${DEPLOY_PATH}' \
               && rm -f '${REMOTE_TMP}'"
 
+  deploy-backend-server:
+    name: Build & Deploy Go Backend
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    env:
+      DEPLOY_HOST: ${{ secrets.HEALTH_WEB_HOST }}
+      DEPLOY_PORT: ${{ secrets.HEALTH_WEB_PORT }}
+      DEPLOY_USER: ${{ secrets.HEALTH_WEB_USER }}
+      DEPLOY_PASSWORD: ${{ secrets.HEALTH_WEB_PASSWORD }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Build Go backend (linux/amd64)
+        working-directory: backend
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: amd64
+        run: go build -trimpath -ldflags "-s -w" -o health_server .
+
+      - name: Install deploy tools
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Deploy backend binary
+        run: |
+          set -euo pipefail
+
+          : "${DEPLOY_HOST:?Missing secret HEALTH_WEB_HOST}"
+          : "${DEPLOY_USER:?Missing secret HEALTH_WEB_USER}"
+          : "${DEPLOY_PASSWORD:?Missing secret HEALTH_WEB_PASSWORD}"
+
+          DEPLOY_PATH="/opt/go/health"
+          PORT="${DEPLOY_PORT:-22}"
+          SERVICE="health_server"
+          REMOTE_TMP="/tmp/health_server.new"
+          SSH_OPTS="-o StrictHostKeyChecking=accept-new"
+
+          # 上传到临时文件，避免覆盖正在运行的二进制时出现 "Text file busy"
+          sshpass -p "$DEPLOY_PASSWORD" scp $SSH_OPTS -P "$PORT" \
+            "backend/health_server" \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_TMP}"
+
+          # 原子替换二进制 -> 配置权限 -> 重启服务
+          sshpass -p "$DEPLOY_PASSWORD" ssh $SSH_OPTS -p "$PORT" \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "mkdir -p '${DEPLOY_PATH}' \
+              && mv -f '${REMOTE_TMP}' '${DEPLOY_PATH}/${SERVICE}' \
+              && chown root:root '${DEPLOY_PATH}/${SERVICE}' \
+              && chmod 755 '${DEPLOY_PATH}/${SERVICE}' \
+              && systemctl restart ${SERVICE} \
+              && systemctl is-active ${SERVICE}"
+
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest

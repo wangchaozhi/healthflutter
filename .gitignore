@@ -82,8 +82,10 @@ backend/*.db
 backend/*.db-shm
 backend/*.db-wal
 backend/.idea/
+backend/backend
 backend/health_server
 backend/health_server.exe
+backend/health_server_linux_amd64
 backend/*.exe
 backend/Download/
 backend/uploads/
