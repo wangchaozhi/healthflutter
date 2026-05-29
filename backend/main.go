@@ -809,7 +809,10 @@ func main() {
 	mux.HandleFunc("/api/file/list", authMiddleware(handlers.FileListHandler))
 	mux.HandleFunc("/api/file/delete", authMiddleware(handlers.FileDeleteHandler))
 	mux.HandleFunc("/api/file/download", authMiddleware(handlers.FileDownloadHandler))
+	mux.HandleFunc("/api/file/share", authMiddleware(handlers.FileShareHandler))
 	mux.HandleFunc("/api/file/clipboard", authMiddleware(handlers.SaveClipboardHandler))
+	// 文件公开下载（无需鉴权，通过分享 token）
+	mux.HandleFunc("/api/public/file/", handlers.PublicFileDownloadHandler)
 
 	// 音乐播放器相关路由
 	mux.HandleFunc("/api/music/upload", authMiddleware(handlers.MusicUploadHandler))

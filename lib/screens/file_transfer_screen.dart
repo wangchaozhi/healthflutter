@@ -464,6 +464,111 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
     }
   }
 
+  // 分享文件：生成/获取公开下载链接
+  Future<void> _shareFile(int fileId, String fileName) async {
+    try {
+      final token = await TokenStorage.getToken();
+      if (token == null) return;
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/file/share?id=$fileId'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (data['success'] == true) {
+          _showShareDialog(fileName, data['download_url'] as String);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['message'] ?? '生成链接失败')),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('生成分享链接失败')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('分享失败: $e')),
+        );
+      }
+    }
+  }
+
+  void _showShareDialog(String fileName, String url) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.link, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '分享链接',
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                fileName,
+                style: const TextStyle(fontSize: 13, color: Colors.grey),
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                ),
+                child: SelectableText(
+                  url,
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '任何人通过此链接可直接下载，无需登录',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('关闭'),
+            ),
+            FilledButton.icon(
+              icon: const Icon(Icons.copy, size: 16),
+              label: const Text('复制链接'),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: url));
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('链接已复制到剪贴板')),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   // 删除文件
   Future<void> _deleteFile(int fileId) async {
     if (!_deleteDebounce.canExecute) return;
@@ -908,6 +1013,18 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
                                                       file['file_name'],
                                                     ),
                                               ),
+                                          IconButton(
+                                            icon: Icon(
+                                              (file['share_token'] != null && (file['share_token'] as String).isNotEmpty)
+                                                  ? Icons.link
+                                                  : Icons.share,
+                                              color: (file['share_token'] != null && (file['share_token'] as String).isNotEmpty)
+                                                  ? Theme.of(context).colorScheme.primary
+                                                  : null,
+                                            ),
+                                            tooltip: '分享',
+                                            onPressed: () => _shareFile(file['id'], file['file_name']),
+                                          ),
                                           IconButton(
                                             icon: const Icon(Icons.delete),
                                             onPressed: _deleteDebounce.canExecute

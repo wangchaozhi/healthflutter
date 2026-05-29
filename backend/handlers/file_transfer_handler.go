@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-	
+
 	"backend/database"
 	"backend/models"
 	"backend/utils"
@@ -251,6 +252,85 @@ func FileDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.FormatInt(file.FileSize, 10))
 
 	// 读取并发送文件
+	http.ServeFile(w, r, file.FilePath)
+}
+
+// FileShareHandler 为文件生成（或返回已有的）分享 token，需要登录
+func FileShareHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "方法不允许", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := GetUserID(r)
+	if userID == 0 {
+		http.Error(w, "未授权", http.StatusUnauthorized)
+		return
+	}
+
+	idStr := r.URL.Query().Get("id")
+	if idStr == "" {
+		http.Error(w, "缺少文件ID参数", http.StatusBadRequest)
+		return
+	}
+	fileID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "无效的文件ID", http.StatusBadRequest)
+		return
+	}
+
+	token, err := database.SetFileShareToken(fileID, userID)
+	if err != nil {
+		http.Error(w, "生成分享链接失败", http.StatusInternalServerError)
+		return
+	}
+
+	// 从请求 Host 构建公开下载 URL
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	downloadURL := scheme + "://" + r.Host + "/api/public/file/" + token
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"message":      "分享链接生成成功",
+		"token":        token,
+		"download_url": downloadURL,
+	})
+}
+
+// PublicFileDownloadHandler 通过分享 token 公开下载，无需登录
+func PublicFileDownloadHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "方法不允许", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 路径格式：/api/public/file/{token}
+	token := strings.TrimPrefix(r.URL.Path, "/api/public/file/")
+	token = strings.TrimSpace(token)
+	if token == "" {
+		http.Error(w, "缺少分享 token", http.StatusBadRequest)
+		return
+	}
+
+	file, err := database.GetFileByShareToken(token)
+	if err != nil {
+		http.Error(w, "链接无效或文件不存在", http.StatusNotFound)
+		return
+	}
+
+	if _, err := os.Stat(file.FilePath); os.IsNotExist(err) {
+		http.Error(w, "文件已被删除", http.StatusNotFound)
+		return
+	}
+
+	encodedName := url.PathEscape(file.FileName)
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, file.FileName, encodedName))
+	w.Header().Set("Content-Length", strconv.FormatInt(file.FileSize, 10))
 	http.ServeFile(w, r, file.FilePath)
 }
 

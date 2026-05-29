@@ -10,6 +10,7 @@ type FileTransfer struct {
 	FileSizeStr string `json:"file_size_str"`
 	FileType    string `json:"file_type"`
 	CreatedAt   string `json:"created_at"`
+	ShareToken  string `json:"share_token,omitempty"`
 }
 
 // 文件传输列表响应

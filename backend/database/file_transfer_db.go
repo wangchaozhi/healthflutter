@@ -1,6 +1,9 @@
 package database
 
 import (
+	"crypto/rand"
+	"database/sql"
+	"encoding/hex"
 	"log"
 	"os"
 
@@ -8,7 +11,7 @@ import (
 	"backend/utils"
 )
 
-// InitFileTransferTable 初始化文件传输表
+// InitFileTransferTable 初始化文件传输表，并迁移 share_token 列
 func InitFileTransferTable() error {
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS file_transfers (
@@ -22,13 +25,70 @@ func InitFileTransferTable() error {
 		FOREIGN KEY (user_id) REFERENCES users(id)
 	);`
 
-	_, err := DB.Exec(createTableSQL)
-	if err != nil {
+	if _, err := DB.Exec(createTableSQL); err != nil {
 		return err
 	}
 
+	// 迁移：添加 share_token 列（旧库兼容，忽略 "duplicate column" 错误）
+	_, _ = DB.Exec(`ALTER TABLE file_transfers ADD COLUMN share_token TEXT`)
+
 	log.Println("文件传输表初始化成功")
 	return nil
+}
+
+// GenerateFileShareToken 生成随机分享 token
+func GenerateFileShareToken() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+// SetFileShareToken 为指定文件设置（或复用）分享 token，返回最终 token
+func SetFileShareToken(fileID, userID int) (string, error) {
+	// 如果已有 token 直接返回
+	var existing sql.NullString
+	err := DB.QueryRow(
+		"SELECT share_token FROM file_transfers WHERE id = ? AND user_id = ?",
+		fileID, userID,
+	).Scan(&existing)
+	if err != nil {
+		return "", err
+	}
+	if existing.Valid && existing.String != "" {
+		return existing.String, nil
+	}
+
+	token, err := GenerateFileShareToken()
+	if err != nil {
+		return "", err
+	}
+	_, err = DB.Exec(
+		"UPDATE file_transfers SET share_token = ? WHERE id = ? AND user_id = ?",
+		token, fileID, userID,
+	)
+	return token, err
+}
+
+// GetFileByShareToken 通过分享 token 获取文件（公开，不校验 user_id）
+func GetFileByShareToken(token string) (*models.FileTransfer, error) {
+	var file models.FileTransfer
+	var createdAt string
+	var shareToken sql.NullString
+	err := DB.QueryRow(
+		"SELECT id, user_id, file_name, file_path, file_size, file_type, created_at, share_token FROM file_transfers WHERE share_token = ?",
+		token,
+	).Scan(&file.ID, &file.UserID, &file.FileName, &file.FilePath, &file.FileSize, &file.FileType, &createdAt, &shareToken)
+	if err != nil {
+		return nil, err
+	}
+	file.FileSizeStr = formatFileSizeInDB(file.FileSize)
+	file.CreatedAt = utils.UTCToShanghai(createdAt)
+	if shareToken.Valid {
+		file.ShareToken = shareToken.String
+	}
+	return &file, nil
 }
 
 // SaveFileTransfer 保存文件传输记录
@@ -58,7 +118,7 @@ func GetUserFileTransfers(userID int, page, pageSize int) ([]models.FileTransfer
 	// 获取分页数据
 	offset := (page - 1) * pageSize
 	rows, err := DB.Query(
-		"SELECT id, user_id, file_name, file_path, file_size, file_type, created_at FROM file_transfers WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+		"SELECT id, user_id, file_name, file_path, file_size, file_type, created_at, COALESCE(share_token,'') FROM file_transfers WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
 		userID, pageSize, offset,
 	)
 	if err != nil {
@@ -78,16 +138,13 @@ func GetUserFileTransfers(userID int, page, pageSize int) ([]models.FileTransfer
 			&file.FileSize,
 			&file.FileType,
 			&createdAt,
+			&file.ShareToken,
 		)
 		if err != nil {
 			continue
 		}
-		// 格式化文件大小
 		file.FileSizeStr = formatFileSizeInDB(file.FileSize)
-
-		// 数据库存储的是 UTC 时间，显示时转换为东八区
 		file.CreatedAt = utils.UTCToShanghai(createdAt)
-
 		files = append(files, file)
 	}
 
@@ -133,7 +190,7 @@ func GetFileTransferByID(id, userID int) (*models.FileTransfer, error) {
 	var file models.FileTransfer
 	var createdAt string
 	err := DB.QueryRow(
-		"SELECT id, user_id, file_name, file_path, file_size, file_type, created_at FROM file_transfers WHERE id = ? AND user_id = ?",
+		"SELECT id, user_id, file_name, file_path, file_size, file_type, created_at, COALESCE(share_token,'') FROM file_transfers WHERE id = ? AND user_id = ?",
 		id, userID,
 	).Scan(
 		&file.ID,
@@ -143,15 +200,13 @@ func GetFileTransferByID(id, userID int) (*models.FileTransfer, error) {
 		&file.FileSize,
 		&file.FileType,
 		&createdAt,
+		&file.ShareToken,
 	)
 	if err != nil {
 		return nil, err
 	}
 	file.FileSizeStr = formatFileSizeInDB(file.FileSize)
-
-	// 数据库存储的是 UTC 时间，显示时转换为东八区
 	file.CreatedAt = utils.UTCToShanghai(createdAt)
-
 	return &file, nil
 }
 
