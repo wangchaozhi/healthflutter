@@ -125,18 +125,14 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
     try {
       // 移动端使用 FileType.any，然后在代码中过滤文件类型
       // 因为 FileType.custom 在移动端可能不支持或限制太严格
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      final pickedFile = await FilePicker.pickFile(
         type: FileType.any, // 使用 any 类型以确保移动端可用
-        allowMultiple: false,
-        withData: true, // 确保读取文件数据（Web和移动端都支持）
       );
 
       // 用户选择了文件后，才显示loading
-      if (result == null || result.files.isEmpty) {
+      if (pickedFile == null) {
         return; // 用户取消选择，直接返回
       }
-
-      final pickedFile = result.files.single;
       
       // 检查文件扩展名（移动端使用 FileType.any，需要手动过滤）
       final fileName = pickedFile.name.toLowerCase();
@@ -176,39 +172,19 @@ class _LyricsManageDialogState extends State<LyricsManageDialog> {
       );
       request.headers['Authorization'] = 'Bearer $token';
       
-      // 添加文件 - 优先使用 bytes（Web 和移动端都支持）
+      // v13 通过 PlatformFile 按需读取内容，兼容 Web、移动端和桌面端
       http.MultipartFile multipartFile;
-      
-      if (pickedFile.bytes != null) {
-        // 使用 bytes（Web 和移动端都支持）
+      try {
+        final bytes = await pickedFile.readAsBytes();
         multipartFile = http.MultipartFile.fromBytes(
           'file',
-          pickedFile.bytes!,
+          bytes,
           filename: pickedFile.name,
         );
-      } else if (pickedFile.path != null) {
-        // 移动端：使用路径读取文件
-        try {
-          multipartFile = await http.MultipartFile.fromPath(
-            'file',
-            pickedFile.path!,
-            filename: pickedFile.name,
-          );
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('读取文件失败: $e')),
-            );
-            setState(() {
-              _isUploading = false;
-            });
-          }
-          return;
-        }
-      } else {
+      } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('无法读取文件，请重试')),
+            SnackBar(content: Text('读取文件失败: $e')),
           );
           setState(() {
             _isUploading = false;

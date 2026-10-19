@@ -192,12 +192,11 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         });
 
         try {
-          FilePickerResult? result = await FilePicker.platform.pickFiles(
+          final pickedFile = await FilePicker.pickFile(
             type: FileType.audio,
-            allowMultiple: false,
           );
 
-          if (result != null) {
+          if (pickedFile != null) {
             final token = await TokenStorage.getToken();
             if (token == null) {
               return;
@@ -205,7 +204,8 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
 
             if (kIsWeb) {
               // Web端上传
-              if (result.files.single.bytes != null) {
+              {
+                final bytes = await pickedFile.readAsBytes();
                 var request = http.MultipartRequest(
                   'POST',
                   Uri.parse('${ApiConfig.baseUrl}/music/upload'),
@@ -214,8 +214,8 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                 request.files.add(
                   http.MultipartFile.fromBytes(
                     'file',
-                    result.files.single.bytes!,
-                    filename: result.files.single.name,
+                    bytes,
+                    filename: pickedFile.name,
                   ),
                 );
 
@@ -248,14 +248,14 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
               }
             } else {
               // 移动端和桌面端上传
-              if (result.files.single.path != null) {
+              if (pickedFile.path != null) {
                 var request = http.MultipartRequest(
                   'POST',
                   Uri.parse('${ApiConfig.baseUrl}/music/upload'),
                 );
                 request.headers['Authorization'] = 'Bearer $token';
                 request.files.add(
-                  await http.MultipartFile.fromPath('file', result.files.single.path!),
+                  await http.MultipartFile.fromPath('file', pickedFile.path!),
                 );
 
                 var streamedResponse = await request.send();

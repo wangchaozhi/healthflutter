@@ -306,12 +306,11 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           }
 
           // 打开文件选择器（此时不显示loading）
-          FilePickerResult? result = await FilePicker.platform.pickFiles(
+          final pickedFile = await FilePicker.pickFile(
             type: FileType.any,
-            allowMultiple: false,
           );
 
-          if (result == null || result.files.single.path == null) {
+          if (pickedFile?.path == null) {
             return;
           }
 
@@ -322,7 +321,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           }
 
           await file_upload.uploadFileFromPlatformFile(
-            result.files.single,
+            pickedFile!,
             token,
             ApiConfig.baseUrl,
             (success, message) {

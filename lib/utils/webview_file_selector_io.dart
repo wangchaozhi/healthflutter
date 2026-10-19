@@ -15,18 +15,15 @@ Future<void> configureAndroidWebViewFileSelector(
       return <String>[];
     }
 
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      allowMultiple: params.mode == FileSelectorMode.openMultiple,
-      withData: false,
-      withReadStream: false,
-    );
-
-    if (result == null) {
-      return <String>[];
+    final List<PlatformFile> files;
+    if (params.mode == FileSelectorMode.openMultiple) {
+      files = await FilePicker.pickFiles(type: FileType.any);
+    } else {
+      final file = await FilePicker.pickFile(type: FileType.any);
+      files = file == null ? <PlatformFile>[] : <PlatformFile>[file];
     }
 
-    return result.files
+    return files
         .map((file) => file.path)
         .whereType<String>()
         .map((path) => Uri.file(path).toString())
