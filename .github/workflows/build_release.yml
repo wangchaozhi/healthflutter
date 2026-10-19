@@ -9,9 +9,42 @@ permissions:
   contents: write  # 允许创建 Release 和上传文件
 
 jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: 'stable'
+          cache: true
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Verify Flutter
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Verify Go backend
+        working-directory: backend
+        run: |
+          go test ./...
+          go vet ./...
+
   # Linux, Windows, Web, Android 在 Ubuntu runner 上构建
   build-linux:
     name: Build Linux
+    needs: verify
     runs-on: ubuntu-latest
     continue-on-error: true
     env:
@@ -23,7 +56,7 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad libayatana-appindicator3-dev
+          sudo apt-get install -y libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad libayatana-appindicator3-dev libsecret-1-0 libsecret-1-dev
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -103,6 +136,7 @@ jobs:
 
   build-windows:
     name: Build Windows
+    needs: verify
     runs-on: windows-latest
     continue-on-error: true
     env:
@@ -139,6 +173,7 @@ jobs:
 
   build-web:
     name: Build Web
+    needs: verify
     runs-on: ubuntu-latest
     continue-on-error: true
     env:
@@ -222,6 +257,7 @@ jobs:
 
   deploy-backend-server:
     name: Build & Deploy Go Backend
+    needs: verify
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     env:
@@ -281,6 +317,7 @@ jobs:
 
   build-android:
     name: Build Android APK
+    needs: verify
     runs-on: ubuntu-latest
     continue-on-error: true
     env:
@@ -322,6 +359,7 @@ jobs:
   # macOS 和 iOS 需要在 macOS runner 上构建
   build-macos:
     name: Build macOS
+    needs: verify
     runs-on: macos-latest
     continue-on-error: true
     env:
@@ -426,6 +464,7 @@ jobs:
 
   build-ios:
     name: Build iOS
+    needs: verify
     runs-on: macos-latest
     continue-on-error: true
     env:
@@ -483,9 +522,9 @@ jobs:
   # 收集所有构建产物并上传到 Release
   release:
     name: Create Release
-    needs: [build-linux, build-windows, build-web, build-android, build-macos, build-ios]
+    needs: [verify, build-linux, build-windows, build-web, build-android, build-macos, build-ios]
     runs-on: ubuntu-latest
-    if: always() && startsWith(github.ref, 'refs/tags/')
+    if: always() && needs.verify.result == 'success' && startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -503,6 +542,12 @@ jobs:
             ## Release ${{ github.ref_name }}
 
             Some platform builds may be missing if that job failed. Check the workflow run for details.
+
+            ### v0.3.16 highlights
+            - Harden JWT identity handling, music stream tickets, lyric ownership checks, uploads, and Douyin command execution.
+            - Store login tokens in platform secure storage and stop persisting passwords.
+            - Improve streaming cache, async race handling, activity refresh consistency, and UI rebuild scope.
+            - `API_BASE_URL` can be overridden with `--dart-define`; production deployments should terminate TLS externally because the legacy default endpoint is HTTP.
             
             ### Downloads
             - **Linux**: `healthflutter-${{ github.ref_name }}-x86_64.AppImage`

@@ -2,6 +2,7 @@
 // ignore_for_file: deprecated_member_use, avoid_web_libraries_in_flutter
 
 import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
 
 /// Web端拖拽上传组件
@@ -41,9 +42,7 @@ class _WebDropZoneState extends State<WebDropZone> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        border: _isDragging
-            ? Border.all(color: Colors.blue, width: 2)
-            : null,
+        border: _isDragging ? Border.all(color: Colors.blue, width: 2) : null,
       ),
       child: widget.child,
     );
@@ -76,7 +75,7 @@ class _WebDropZoneState extends State<WebDropZone> {
   void _handleDrop(html.Event e) {
     e.preventDefault();
     e.stopPropagation();
-    
+
     setState(() {
       _isDragging = false;
     });

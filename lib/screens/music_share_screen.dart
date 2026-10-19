@@ -1,7 +1,9 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+
 import '../config/api_config.dart';
 import '../services/token_storage.dart';
 import '../utils/debounce.dart';
@@ -16,7 +18,7 @@ class MusicShareScreen extends StatefulWidget {
 class _MusicShareScreenState extends State<MusicShareScreen> {
   List<dynamic> _shareList = [];
   bool _isLoading = false;
-  
+
   // 防抖
   final DebounceState _deleteDebounce = DebounceState();
 
@@ -36,23 +38,20 @@ class _MusicShareScreenState extends State<MusicShareScreen> {
       final token = await TokenStorage.getToken();
       if (token == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('请先登录')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('请先登录')));
         }
         return;
       }
 
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/music/share/list'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
-        if (data['success'] == true) {
+        if (data['success'] == true && mounted) {
           setState(() {
             _shareList = data['list'] ?? [];
           });
@@ -60,9 +59,8 @@ class _MusicShareScreenState extends State<MusicShareScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('加载失败: $e')));
       }
     } finally {
       if (mounted) {
@@ -87,27 +85,23 @@ class _MusicShareScreenState extends State<MusicShareScreen> {
 
           final response = await http.delete(
             Uri.parse('${ApiConfig.baseUrl}/music/share/delete?id=$shareId'),
-            headers: {
-              'Authorization': 'Bearer $token',
-            },
+            headers: {'Authorization': 'Bearer $token'},
           );
 
           if (response.statusCode == 200) {
             final data = jsonDecode(utf8.decode(response.bodyBytes));
             if (data['success'] == true) {
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('删除成功')),
-                );
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('删除成功')));
               }
               await _loadShares();
             }
           }
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('删除失败: $e')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('删除失败: $e')));
           }
         }
       },
@@ -119,7 +113,7 @@ class _MusicShareScreenState extends State<MusicShareScreen> {
     // 构建Web播放页面的URL（后端提供的HTML页面）
     final baseUrl = ApiConfig.baseUrl.replaceAll('/api', '');
     final shareUrl = '$baseUrl/share/$shareToken';
-    
+
     Clipboard.setData(ClipboardData(text: shareUrl));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -132,108 +126,117 @@ class _MusicShareScreenState extends State<MusicShareScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('我的分享'),
-      ),
+      appBar: AppBar(title: const Text('我的分享')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _shareList.isEmpty
-              ? const Center(
-                  child: Text(
-                    '暂无分享\n在音乐播放器中点击分享按钮创建分享',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadShares,
-                  child: ListView.builder(
-                    itemCount: _shareList.length,
-                    itemBuilder: (context, index) {
-                      final share = _shareList[index];
-                      final shareToken = share['share_token'] ?? '';
-                      
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: ListTile(
-                          leading: const Icon(
-                            Icons.music_note,
-                            size: 40,
-                            color: Colors.blue,
+          ? const Center(
+              child: Text(
+                '暂无分享\n在音乐播放器中点击分享按钮创建分享',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _loadShares,
+              child: ListView.builder(
+                itemCount: _shareList.length,
+                itemBuilder: (context, index) {
+                  final share = _shareList[index];
+                  final shareToken = share['share_token'] ?? '';
+
+                  return Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: ListTile(
+                      leading: const Icon(
+                        Icons.music_note,
+                        size: 40,
+                        color: Colors.blue,
+                      ),
+                      title: Text(
+                        share['title'] ?? '未知标题',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(share['artist'] ?? '未知艺术家'),
+                          const SizedBox(height: 4),
+                          Text(
+                            '浏览次数: ${share['view_count'] ?? 0}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
                           ),
-                          title: Text(
-                            share['title'] ?? '未知标题',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          Text(
+                            '创建时间: ${_formatDate(share['created_at'])}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
                           ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(share['artist'] ?? '未知艺术家'),
-                              const SizedBox(height: 4),
-                              Text(
-                                '浏览次数: ${share['view_count'] ?? 0}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                              Text(
-                                '创建时间: ${share['created_at']?.substring(0, 10) ?? ''}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.copy, color: Colors.blue),
+                            onPressed: () => _copyShareLink(shareToken),
+                            tooltip: '复制链接',
                           ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.copy, color: Colors.blue),
-                                onPressed: () => _copyShareLink(shareToken),
-                                tooltip: '复制链接',
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text('确认删除'),
-                                      content: const Text('删除后，分享链接将失效，他人将无法访问'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context),
-                                          child: const Text('取消'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                            _deleteShare(share['id']);
-                                          },
-                                          child: const Text(
-                                            '删除',
-                                            style: TextStyle(color: Colors.red),
-                                          ),
-                                        ),
-                                      ],
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('确认删除'),
+                                  content: const Text('删除后，分享链接将失效，他人将无法访问'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('取消'),
                                     ),
-                                  );
-                                },
-                                tooltip: '删除分享',
-                              ),
-                            ],
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        _deleteShare(share['id']);
+                                      },
+                                      child: const Text(
+                                        '删除',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            tooltip: '删除分享',
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
     );
   }
 }
 
+String _formatDate(dynamic value) {
+  final text = value?.toString() ?? '';
+  if (text.isEmpty) return '';
+  final parsed = DateTime.tryParse(text);
+  if (parsed != null) {
+    return '${parsed.year.toString().padLeft(4, '0')}-'
+        '${parsed.month.toString().padLeft(2, '0')}-'
+        '${parsed.day.toString().padLeft(2, '0')}';
+  }
+  return text.length <= 10 ? text : text.substring(0, 10);
+}

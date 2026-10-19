@@ -82,7 +82,9 @@ class ActivityStats {
       lastTwoManualInterval: asInt(json['last_two_manual_interval'], -1),
       lastIntervalDays: asNullableDouble(json['last_interval_days']),
       lastAutoIntervalDays: asNullableDouble(json['last_auto_interval_days']),
-      lastManualIntervalDays: asNullableDouble(json['last_manual_interval_days']),
+      lastManualIntervalDays: asNullableDouble(
+        json['last_manual_interval_days'],
+      ),
       lastToNowDays: asNullableDouble(json['last_to_now_days']),
     );
   }

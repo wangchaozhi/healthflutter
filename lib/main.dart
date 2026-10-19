@@ -1,11 +1,14 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+
 import 'router/app_router.dart';
 import 'router/app_routes.dart';
 import 'services/activity_store.dart';
 import 'services/cache_service.dart';
 import 'services/http_client.dart';
+import 'services/music_player_service.dart';
 import 'services/single_instance_service.dart';
 import 'services/theme_service.dart';
 import 'services/token_storage.dart';
@@ -40,13 +43,22 @@ void main() async {
 }
 
 Future<void> _handleUnauthorized() async {
-  await TokenStorage.clearToken();
-  ActivityStore.instance.clear();
-  appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
-    AppRoutes.login,
-    (_) => false,
-  );
+  if (_handlingUnauthorized) return;
+  _handlingUnauthorized = true;
+  try {
+    await TokenStorage.clearToken();
+    await MusicPlayerService().stopAndReset();
+    ActivityStore.instance.clear();
+    appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+      AppRoutes.login,
+      (_) => false,
+    );
+  } finally {
+    _handlingUnauthorized = false;
+  }
 }
+
+bool _handlingUnauthorized = false;
 
 class _AppLifecycleObserver extends WidgetsBindingObserver {
   @override
@@ -76,10 +88,7 @@ class MyApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          supportedLocales: const [
-            Locale('zh', 'CN'),
-            Locale('en', 'US'),
-          ],
+          supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
           initialRoute: AppRoutes.root,
           onGenerateRoute: AppRouter.onGenerateRoute,
         );

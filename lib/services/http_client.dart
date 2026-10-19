@@ -1,5 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
 import '../config/api_config.dart';
 import 'token_storage.dart';
 
@@ -14,6 +18,7 @@ class ApiException implements Exception {
 
 class HttpClient {
   static String get _baseUrl => ApiConfig.baseUrl;
+  static const Duration _timeout = Duration(seconds: 20);
 
   /// Called when an authenticated request returns 401.
   /// Wire this in app startup to clear stores and redirect to login.
@@ -28,28 +33,60 @@ class HttpClient {
     return headers;
   }
 
-  static Map<String, dynamic> _decode(http.Response response, {required bool auth}) {
+  static Map<String, dynamic> _decode(
+    http.Response response, {
+    required bool auth,
+  }) {
+    final body = utf8.decode(response.bodyBytes);
+    dynamic decoded;
+    if (body.isNotEmpty) {
+      try {
+        decoded = jsonDecode(body);
+      } on FormatException {
+        decoded = null;
+      }
+    }
+
     if (auth && response.statusCode == 401) {
       onUnauthorized?.call();
       throw ApiException('登录已过期，请重新登录', statusCode: 401);
     }
-    final body = utf8.decode(response.bodyBytes);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final serverMessage = decoded is Map
+          ? decoded['message']?.toString()
+          : body.trim().isNotEmpty
+          ? body.trim()
+          : null;
+      throw ApiException(
+        serverMessage ?? response.reasonPhrase ?? '请求失败',
+        statusCode: response.statusCode,
+      );
+    }
     if (body.isEmpty) return {};
-    final decoded = jsonDecode(body);
+    if (decoded == null) {
+      throw ApiException('服务器返回了无效数据', statusCode: response.statusCode);
+    }
     if (decoded is Map<String, dynamic>) return decoded;
     return {'data': decoded};
   }
+
+  @visibleForTesting
+  static Map<String, dynamic> decodeResponseForTest(
+    http.Response response, {
+    bool auth = true,
+  }) => _decode(response, auth: auth);
 
   static Future<Map<String, dynamic>> get(
     String path, {
     bool auth = true,
   }) async {
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl$path'),
-        headers: await _headers(auth: auth),
-      );
+      final response = await http
+          .get(Uri.parse('$_baseUrl$path'), headers: await _headers(auth: auth))
+          .timeout(_timeout);
       return _decode(response, auth: auth);
+    } on TimeoutException {
+      throw ApiException('请求超时，请稍后重试');
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -63,12 +100,16 @@ class HttpClient {
     bool auth = true,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl$path'),
-        headers: await _headers(auth: auth),
-        body: body == null ? null : jsonEncode(body),
-      );
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl$path'),
+            headers: await _headers(auth: auth),
+            body: body == null ? null : jsonEncode(body),
+          )
+          .timeout(_timeout);
       return _decode(response, auth: auth);
+    } on TimeoutException {
+      throw ApiException('请求超时，请稍后重试');
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -81,11 +122,15 @@ class HttpClient {
     bool auth = true,
   }) async {
     try {
-      final response = await http.delete(
-        Uri.parse('$_baseUrl$path'),
-        headers: await _headers(auth: auth),
-      );
+      final response = await http
+          .delete(
+            Uri.parse('$_baseUrl$path'),
+            headers: await _headers(auth: auth),
+          )
+          .timeout(_timeout);
       return _decode(response, auth: auth);
+    } on TimeoutException {
+      throw ApiException('请求超时，请稍后重试');
     } on ApiException {
       rethrow;
     } catch (e) {

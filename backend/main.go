@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -68,22 +69,22 @@ type ActivityResponse struct {
 }
 
 type ActivityStats struct {
-	TotalAuto              int      `json:"total_auto"`               // 总计自动次数
-	TotalManual            int      `json:"total_manual"`             // 总计手动次数
-	YearAuto               int      `json:"year_auto"`                // 今年自动次数
-	YearManual             int      `json:"year_manual"`              // 今年手动次数
-	MonthAuto              int      `json:"month_auto"`               // 本月自动次数
-	MonthManual            int      `json:"month_manual"`             // 本月手动次数
-	AutoFrequencyPerDay    float64  `json:"auto_frequency_per_day"`   // 自动频率（次/天）
-	ManualFrequencyPerDay  float64  `json:"manual_frequency_per_day"` // 手动频率（次/天）
-	TotalFrequencyPerDay   float64  `json:"total_frequency_per_day"`  // 总频率（次/天）
-	AutoPeriodDays         float64  `json:"auto_period_days"`         // 自动周期（天/次）
-	ManualPeriodDays       float64  `json:"manual_period_days"`       // 手动周期（天/次）
-	TotalPeriodDays        float64  `json:"total_period_days"`        // 总周期（天/次）
-	EarliestDate           string   `json:"earliest_date"`            // 最早记录日期
-	LastTwoInterval        int      `json:"last_two_interval"`        // 最后两次间隔天数，-1表示不足2条
-	LastTwoAutoInterval    int      `json:"last_two_auto_interval"`   // 最后两个自动间隔天数
-	LastTwoManualInterval  int      `json:"last_two_manual_interval"` // 最后两个手动间隔天数
+	TotalAuto              int      `json:"total_auto"`                          // 总计自动次数
+	TotalManual            int      `json:"total_manual"`                        // 总计手动次数
+	YearAuto               int      `json:"year_auto"`                           // 今年自动次数
+	YearManual             int      `json:"year_manual"`                         // 今年手动次数
+	MonthAuto              int      `json:"month_auto"`                          // 本月自动次数
+	MonthManual            int      `json:"month_manual"`                        // 本月手动次数
+	AutoFrequencyPerDay    float64  `json:"auto_frequency_per_day"`              // 自动频率（次/天）
+	ManualFrequencyPerDay  float64  `json:"manual_frequency_per_day"`            // 手动频率（次/天）
+	TotalFrequencyPerDay   float64  `json:"total_frequency_per_day"`             // 总频率（次/天）
+	AutoPeriodDays         float64  `json:"auto_period_days"`                    // 自动周期（天/次）
+	ManualPeriodDays       float64  `json:"manual_period_days"`                  // 手动周期（天/次）
+	TotalPeriodDays        float64  `json:"total_period_days"`                   // 总周期（天/次）
+	EarliestDate           string   `json:"earliest_date"`                       // 最早记录日期
+	LastTwoInterval        int      `json:"last_two_interval"`                   // 最后两次间隔天数，-1表示不足2条
+	LastTwoAutoInterval    int      `json:"last_two_auto_interval"`              // 最后两个自动间隔天数
+	LastTwoManualInterval  int      `json:"last_two_manual_interval"`            // 最后两个手动间隔天数
 	LastIntervalDays       *float64 `json:"last_interval_days,omitempty"`        // 最后两次间隔天数（小数）
 	LastAutoIntervalDays   *float64 `json:"last_auto_interval_days,omitempty"`   // 最后两次自动间隔天数（小数）
 	LastManualIntervalDays *float64 `json:"last_manual_interval_days,omitempty"` // 最后两次手动间隔天数（小数）
@@ -248,7 +249,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 var authMiddleware = handlers.AuthMiddleware
 
 func profileHandler(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-ID")
+	userID := handlers.GetUserID(r)
 
 	var user User
 	err := database.DB.QueryRow("SELECT id, username FROM users WHERE id = ?", userID).Scan(&user.ID, &user.Username)
@@ -282,8 +283,8 @@ func createActivityHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.Header.Get("X-User-ID")
-	if userID == "" {
+	userID := handlers.GetUserID(r)
+	if userID <= 0 {
 		http.Error(w, "未授权", http.StatusUnauthorized)
 		return
 	}
@@ -326,14 +327,11 @@ func createActivityHandler(w http.ResponseWriter, r *http.Request) {
 		tag = "manual"
 	}
 
-	var userIDInt int
-	fmt.Sscanf(userID, "%d", &userIDInt)
-
 	// 插入记录，存储 UTC 时间
 	createdAtUTC := utils.NowUTCString()
 	result, err := database.DB.Exec(
 		"INSERT INTO health_activities (user_id, record_date, record_time, week_day, duration, remark, tag, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-		userIDInt, req.RecordDate, req.RecordTime, weekDay, req.Duration, req.Remark, tag, createdAtUTC,
+		userID, req.RecordDate, req.RecordTime, weekDay, req.Duration, req.Remark, tag, createdAtUTC,
 	)
 	if err != nil {
 		http.Error(w, "创建记录失败", http.StatusInternalServerError)
@@ -345,7 +343,7 @@ func createActivityHandler(w http.ResponseWriter, r *http.Request) {
 	// 显示时转换为东八区时间
 	activity := HealthActivity{
 		ID:         int(activityID),
-		UserID:     userIDInt,
+		UserID:     userID,
 		RecordDate: req.RecordDate,
 		RecordTime: req.RecordTime,
 		WeekDay:    weekDay,
@@ -370,18 +368,28 @@ func listActivitiesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.Header.Get("X-User-ID")
-	if userID == "" {
+	userID := handlers.GetUserID(r)
+	if userID <= 0 {
 		http.Error(w, "未授权", http.StatusUnauthorized)
 		return
 	}
 
-	var userIDInt int
-	fmt.Sscanf(userID, "%d", &userIDInt)
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	offset := (page - 1) * pageSize
 
 	rows, err := database.DB.Query(
-		"SELECT id, user_id, record_date, record_time, week_day, duration, remark, COALESCE(tag, 'manual'), created_at FROM health_activities WHERE user_id = ? ORDER BY record_date DESC, record_time DESC LIMIT 5",
-		userIDInt,
+		"SELECT id, user_id, record_date, record_time, week_day, duration, remark, COALESCE(tag, 'manual'), created_at FROM health_activities WHERE user_id = ? ORDER BY record_date DESC, record_time DESC LIMIT ? OFFSET ?",
+		userID, pageSize, offset,
 	)
 	if err != nil {
 		http.Error(w, "查询失败", http.StatusInternalServerError)
@@ -429,8 +437,8 @@ func deleteActivityHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.Header.Get("X-User-ID")
-	if userID == "" {
+	userID := handlers.GetUserID(r)
+	if userID <= 0 {
 		http.Error(w, "未授权", http.StatusUnauthorized)
 		return
 	}
@@ -445,9 +453,6 @@ func deleteActivityHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userIDInt int
-	fmt.Sscanf(userID, "%d", &userIDInt)
-
 	// 验证记录是否属于当前用户
 	var ownerID int
 	err := database.DB.QueryRow("SELECT user_id FROM health_activities WHERE id = ?", activityID).Scan(&ownerID)
@@ -459,7 +464,7 @@ func deleteActivityHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ownerID != userIDInt {
+	if ownerID != userID {
 		http.Error(w, "无权删除此记录", http.StatusForbidden)
 		return
 	}
@@ -653,14 +658,13 @@ func getActivityStatsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.Header.Get("X-User-ID")
-	if userID == "" {
+	userID := handlers.GetUserID(r)
+	if userID <= 0 {
 		http.Error(w, "未授权", http.StatusUnauthorized)
 		return
 	}
 
-	var userIDInt int
-	fmt.Sscanf(userID, "%d", &userIDInt)
+	userIDInt := userID
 
 	now := utils.Now()
 	currentYear := now.Format("2006")
@@ -818,7 +822,8 @@ func main() {
 	mux.HandleFunc("/api/music/upload", authMiddleware(handlers.MusicUploadHandler))
 	mux.HandleFunc("/api/music/list", authMiddleware(handlers.MusicListHandler))
 	mux.HandleFunc("/api/music/delete", authMiddleware(handlers.MusicDeleteHandler))
-	// stream 路由不使用 authMiddleware，因为它从 URL 参数获取 token
+	mux.HandleFunc("/api/music/stream-ticket", authMiddleware(handlers.MusicStreamTicketHandler))
+	// 播放器使用绑定用户和音乐的短期 ticket，避免在 URL 暴露长期 access token。
 	mux.HandleFunc("/api/music/stream", handlers.MusicStreamHandler)
 
 	// 音乐分享相关路由
@@ -836,7 +841,7 @@ func main() {
 	mux.HandleFunc("/api/lyrics/search", authMiddleware(handlers.LyricsSearchHandler))
 	mux.HandleFunc("/api/lyrics/bind", authMiddleware(handlers.LyricsBindHandler))
 	mux.HandleFunc("/api/lyrics/unbind", authMiddleware(handlers.LyricsUnbindHandler)) // 解除绑定
-	mux.HandleFunc("/api/lyrics/get", handlers.LyricsGetByMusicIDHandler)              // 公开访问，支持分享页面
+	mux.HandleFunc("/api/lyrics/get", handlers.LyricsGetByMusicIDHandler)
 	mux.HandleFunc("/api/lyrics/delete", authMiddleware(handlers.LyricsDeleteHandler))
 
 	// AriaNg 静态文件服务（放在最后，避免与 API 路由冲突）

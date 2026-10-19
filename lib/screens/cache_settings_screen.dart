@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/cache_service.dart';
 
 /// 缓存设置页面
@@ -65,7 +66,7 @@ class _CacheSettingsScreenState extends State<CacheSettingsScreen> {
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed == true && mounted) {
       setState(() {
         _isLoading = true;
       });
@@ -73,16 +74,14 @@ class _CacheSettingsScreenState extends State<CacheSettingsScreen> {
       try {
         await _cacheService.clearAllCache();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('缓存已清除')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('缓存已清除')));
           await _loadCacheSize();
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('清除失败: $e')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('清除失败: $e')));
         }
       } finally {
         if (mounted) {
@@ -131,10 +130,7 @@ class _CacheSettingsScreenState extends State<CacheSettingsScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              '总缓存大小',
-                              style: TextStyle(fontSize: 16),
-                            ),
+                            const Text('总缓存大小', style: TextStyle(fontSize: 16)),
                             Text(
                               _cacheService.formatCacheSize(_cacheSize),
                               style: TextStyle(
@@ -165,7 +161,10 @@ class _CacheSettingsScreenState extends State<CacheSettingsScreen> {
 
                 // 缓存说明卡片
                 Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -173,7 +172,10 @@ class _CacheSettingsScreenState extends State<CacheSettingsScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.info_outline, color: Colors.amber.shade700),
+                            Icon(
+                              Icons.info_outline,
+                              color: Colors.amber.shade700,
+                            ),
                             const SizedBox(width: 8),
                             const Text(
                               '缓存说明',
@@ -250,10 +252,7 @@ class _CacheSettingsScreenState extends State<CacheSettingsScreen> {
               const SizedBox(height: 4),
               Text(
                 description,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
               ),
             ],
           ),

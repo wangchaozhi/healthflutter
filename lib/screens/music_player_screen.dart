@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+
 import '../config/api_config.dart';
 import '../services/token_storage.dart';
+import '../services/http_client.dart' as api;
 import '../services/music_player_service.dart';
 import '../services/cache_service.dart';
 import '../utils/debounce.dart';
@@ -35,20 +38,23 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
 
   // 全局音乐播放器服务
   final MusicPlayerService _playerService = MusicPlayerService();
-  
+
   // 缓存服务
   final CacheService _cacheService = CacheService();
 
   // 防抖
   final DebounceState _uploadDebounce = DebounceState();
   final DebounceState _deleteDebounce = DebounceState();
-  
+
   // 搜索
   final TextEditingController _searchController = TextEditingController();
   String _searchKeyword = '';
 
   // 歌词相关
   String? _currentLyrics; // 当前歌曲的歌词内容
+  int _musicListRequestGeneration = 0;
+  int _lyricsRequestGeneration = 0;
+  int _playRequestGeneration = 0;
 
   @override
   void initState() {
@@ -56,21 +62,25 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
     _loadMusicList();
     // 监听播放器状态变化
     _playerService.addListener(_onPlayerStateChanged);
-    
+
     // 如果有正在播放的歌曲，加载其歌词
     if (_playerService.currentPlayingId != null) {
       _loadLyrics(_playerService.currentPlayingId!);
     }
   }
-  
+
   @override
   void dispose() {
+    _musicListRequestGeneration++;
+    _lyricsRequestGeneration++;
+    _playRequestGeneration++;
     _searchController.dispose();
     _playerService.removeListener(_onPlayerStateChanged);
+    _playerService.clearPlaylistCallbacks();
     // 注意：不要 dispose 全局播放器服务
     super.dispose();
   }
-  
+
   // 播放器状态变化回调
   void _onPlayerStateChanged() {
     if (mounted) {
@@ -79,7 +89,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
       });
     }
   }
-  
+
   // 获取播放模式图标
   IconData _getPlayModeIcon() {
     switch (_playerService.playMode) {
@@ -91,7 +101,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         return Icons.repeat_one;
     }
   }
-  
+
   // 获取播放模式名称
   String _getPlayModeName() {
     switch (_playerService.playMode) {
@@ -106,6 +116,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
 
   // 加载音乐列表
   Future<void> _loadMusicList({int page = 1, String? keyword}) async {
+    final requestGeneration = ++_musicListRequestGeneration;
     setState(() {
       _isLoading = true;
     });
@@ -117,44 +128,49 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
       }
 
       // 构建 URL，包含搜索关键词
-      String url = '${ApiConfig.baseUrl}/music/list?page=$page&pageSize=$_pageSize';
+      String url =
+          '${ApiConfig.baseUrl}/music/list?page=$page&pageSize=$_pageSize';
       if (keyword != null && keyword.isNotEmpty) {
         url += '&keyword=${Uri.encodeComponent(keyword)}';
       }
 
       final response = await http.get(
         Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
-        if (data['success'] == true) {
+        if (data['success'] == true &&
+            mounted &&
+            requestGeneration == _musicListRequestGeneration) {
           setState(() {
             _musicList = data['list'] ?? [];
             _currentPage = data['currentPage'] ?? 1;
             _totalPages = data['totalPages'] ?? 1;
             _total = data['total'] ?? 0;
           });
-          
+
           // 更新播放器服务的播放列表
           _playerService.setPlaylist(
             _musicList.map((m) => m as Map<String, dynamic>).toList(),
             onPlayNext: _playNext,
-            onPlayPrevious: _playPrevious,
+            onReplayCurrent: () {
+              final id = _playerService.currentPlayingId;
+              return id == null
+                  ? Future<void>.value()
+                  : _playMusic(id, forceReplay: true);
+            },
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('加载失败: $e')));
       }
     } finally {
-      if (mounted) {
+      if (mounted && requestGeneration == _musicListRequestGeneration) {
         setState(() {
           _isLoading = false;
         });
@@ -170,7 +186,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
     });
     _loadMusicList(page: 1, keyword: _searchKeyword);
   }
-  
+
   // 清除搜索
   void _clearSearch() {
     setState(() {
@@ -192,9 +208,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         });
 
         try {
-          final pickedFile = await FilePicker.pickFile(
-            type: FileType.audio,
-          );
+          final pickedFile = await FilePicker.pickFile(type: FileType.audio);
 
           if (pickedFile != null) {
             final token = await TokenStorage.getToken();
@@ -226,11 +240,13 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                   final data = jsonDecode(utf8.decode(response.bodyBytes));
                   if (data['success'] == true) {
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('上传成功')),
-                      );
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(const SnackBar(content: Text('上传成功')));
                     }
-                    await _loadMusicList(page: _currentPage, keyword: _searchKeyword);
+                    await _loadMusicList(
+                      page: _currentPage,
+                      keyword: _searchKeyword,
+                    );
                   } else {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -265,11 +281,13 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                   final data = jsonDecode(utf8.decode(response.bodyBytes));
                   if (data['success'] == true) {
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('上传成功')),
-                      );
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(const SnackBar(content: Text('上传成功')));
                     }
-                    await _loadMusicList(page: _currentPage, keyword: _searchKeyword);
+                    await _loadMusicList(
+                      page: _currentPage,
+                      keyword: _searchKeyword,
+                    );
                   } else {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -289,9 +307,8 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
           }
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('上传失败: $e')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('上传失败: $e')));
           }
         } finally {
           if (mounted) {
@@ -310,18 +327,15 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
       final token = await TokenStorage.getToken();
       if (token == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('请先登录')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('请先登录')));
         }
         return;
       }
 
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/music/share/create?music_id=$musicId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
@@ -329,11 +343,11 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         if (data['success'] == true) {
           // 使用后端返回的完整分享URL
           final shareUrl = data['share_url'];
-          
+
           if (mounted) {
             // 复制链接到剪贴板
             Clipboard.setData(ClipboardData(text: shareUrl));
-            
+
             showDialog(
               context: context,
               builder: (context) => AlertDialog(
@@ -380,17 +394,16 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
           }
         } else {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(data['message'] ?? '分享失败')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(data['message'] ?? '分享失败')));
           }
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('分享失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('分享失败: $e')));
       }
     }
   }
@@ -419,7 +432,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     await _deleteDebounce.execute(
       action: () async {
@@ -431,25 +444,22 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
 
           final response = await http.delete(
             Uri.parse('${ApiConfig.baseUrl}/music/delete?id=$musicId'),
-            headers: {
-              'Authorization': 'Bearer $token',
-            },
+            headers: {'Authorization': 'Bearer $token'},
           );
 
           if (response.statusCode == 200) {
             final data = jsonDecode(utf8.decode(response.bodyBytes));
             if (data['success'] == true) {
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('删除成功')),
-                );
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('删除成功')));
               }
-              
+
               // 如果删除的是正在播放的音乐，停止播放
               if (_playerService.currentPlayingId == musicId) {
                 await _playerService.stop();
               }
-              
+
               await _loadMusicList(page: _currentPage);
             } else {
               if (mounted) {
@@ -467,9 +477,8 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
           }
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('删除失败: $e')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('删除失败: $e')));
           }
         }
       },
@@ -478,27 +487,39 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
 
   // 播放音乐
   Future<void> _playMusic(int musicId, {bool forceReplay = false}) async {
+    final requestGeneration = ++_playRequestGeneration;
     try {
-      final token = await TokenStorage.getToken();
-      if (token == null) {
-        debugPrint('Token为空，无法播放');
+      final ticketResponse = await api.HttpClient.post(
+        '/music/stream-ticket?id=$musicId',
+      );
+      if (!mounted || requestGeneration != _playRequestGeneration) {
         return;
       }
-      
-      // 构建流式传输URL（通过URL参数传递token）
+      final ticket = ticketResponse['ticket']?.toString();
+      if (ticket == null || ticket.isEmpty) {
+        throw const FormatException('服务器未返回播放凭证');
+      }
+
+      // 播放 URL 仅携带短期、绑定当前歌曲的 ticket，不暴露登录 token。
       final baseUrl = ApiConfig.baseUrl.replaceAll('/api', '');
-      final streamUrl = '$baseUrl/api/music/stream?id=$musicId&token=$token';
-      
+      final streamUri = Uri.parse(
+        '$baseUrl/api/music/stream',
+      ).replace(queryParameters: {'id': musicId.toString(), 'ticket': ticket});
+      final streamUrl = streamUri.toString();
+
       // 获取音乐信息
       final music = _musicList.firstWhere(
         (m) => m['id'] == musicId,
         orElse: () => {'title': '未知', 'artist': '未知艺术家'},
       );
-      
+
       // 检查是否有缓存（仅非Web平台）
       String finalStreamUrl = streamUrl;
       if (!kIsWeb) {
         final cachedPath = await _cacheService.getCachedMusicPath(musicId);
+        if (!mounted || requestGeneration != _playRequestGeneration) {
+          return;
+        }
         if (cachedPath != null) {
           finalStreamUrl = cachedPath;
           debugPrint('📦 使用缓存音乐: $cachedPath');
@@ -512,7 +533,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
           });
         }
       }
-      
+
       // 使用全局播放器服务播放
       await _playerService.playMusic(
         musicId: musicId,
@@ -521,19 +542,19 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         artist: music['artist'] ?? '未知艺术家',
         forceReplay: forceReplay,
       );
-      
+
+      if (!mounted || requestGeneration != _playRequestGeneration) return;
       // 加载歌词
       await _loadLyrics(musicId);
     } catch (e) {
       debugPrint('播放失败: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('播放失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('播放失败: $e')));
       }
     }
   }
-  
+
   // 播放/暂停
   Future<void> _togglePlayPause() async {
     if (_playerService.isPlaying) {
@@ -542,18 +563,24 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
       await _playerService.resume();
     }
   }
-  
+
   // 拖动进度条
   Future<void> _seek(double value) async {
     await _playerService.seek(value);
   }
-  
+
   // 上一首
   Future<void> _playPrevious() async {
     if (_playerService.currentPlayingId == null || _musicList.isEmpty) return;
-    
-    final currentIndex = _musicList.indexWhere((m) => m['id'] == _playerService.currentPlayingId);
-    
+
+    final currentIndex = _musicList.indexWhere(
+      (m) => m['id'] == _playerService.currentPlayingId,
+    );
+    if (currentIndex < 0) {
+      await _playMusic(_musicList.first['id']);
+      return;
+    }
+
     // 根据播放模式处理
     switch (_playerService.playMode) {
       case PlayMode.sequence:
@@ -563,7 +590,10 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         } else {
           // 循环到最后一首
           debugPrint('🎵 循环到最后一首');
-          await _playMusic(_musicList[_musicList.length - 1]['id'], forceReplay: _musicList.length == 1);
+          await _playMusic(
+            _musicList[_musicList.length - 1]['id'],
+            forceReplay: _musicList.length == 1,
+          );
         }
         break;
       case PlayMode.shuffle:
@@ -577,7 +607,10 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
             nextIndex = random.nextInt(_musicList.length);
           } while (nextIndex == currentIndex);
         }
-        await _playMusic(_musicList[nextIndex]['id'], forceReplay: _musicList.length == 1);
+        await _playMusic(
+          _musicList[nextIndex]['id'],
+          forceReplay: _musicList.length == 1,
+        );
         break;
       case PlayMode.repeat:
         // 单曲循环：播放上一首
@@ -585,18 +618,27 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
           await _playMusic(_musicList[currentIndex - 1]['id']);
         } else {
           // 循环到最后一首
-          await _playMusic(_musicList[_musicList.length - 1]['id'], forceReplay: _musicList.length == 1);
+          await _playMusic(
+            _musicList[_musicList.length - 1]['id'],
+            forceReplay: _musicList.length == 1,
+          );
         }
         break;
     }
   }
-  
+
   // 下一首
   Future<void> _playNext() async {
     if (_playerService.currentPlayingId == null || _musicList.isEmpty) return;
-    
-    final currentIndex = _musicList.indexWhere((m) => m['id'] == _playerService.currentPlayingId);
-    
+
+    final currentIndex = _musicList.indexWhere(
+      (m) => m['id'] == _playerService.currentPlayingId,
+    );
+    if (currentIndex < 0) {
+      await _playMusic(_musicList.first['id']);
+      return;
+    }
+
     // 根据播放模式选择下一首
     switch (_playerService.playMode) {
       case PlayMode.sequence:
@@ -606,7 +648,10 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         } else {
           // 循环到第一首
           debugPrint('🎵 循环到第一首');
-          await _playMusic(_musicList[0]['id'], forceReplay: _musicList.length == 1);
+          await _playMusic(
+            _musicList[0]['id'],
+            forceReplay: _musicList.length == 1,
+          );
         }
         break;
       case PlayMode.shuffle:
@@ -620,7 +665,10 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
             nextIndex = random.nextInt(_musicList.length);
           } while (nextIndex == currentIndex);
         }
-        await _playMusic(_musicList[nextIndex]['id'], forceReplay: _musicList.length == 1);
+        await _playMusic(
+          _musicList[nextIndex]['id'],
+          forceReplay: _musicList.length == 1,
+        );
         break;
       case PlayMode.repeat:
         // 单曲循环（这里是手动点击下一首，所以还是播放下一首）
@@ -628,7 +676,10 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
           await _playMusic(_musicList[currentIndex + 1]['id']);
         } else {
           // 循环到第一首
-          await _playMusic(_musicList[0]['id'], forceReplay: _musicList.length == 1);
+          await _playMusic(
+            _musicList[0]['id'],
+            forceReplay: _musicList.length == 1,
+          );
         }
         break;
     }
@@ -636,9 +687,11 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
 
   // 加载歌词
   Future<void> _loadLyrics(int musicId) async {
+    final requestGeneration = ++_lyricsRequestGeneration;
     try {
       // 先从缓存读取
       final cachedLyrics = await _cacheService.getCachedLyrics(musicId);
+      if (!mounted || requestGeneration != _lyricsRequestGeneration) return;
       if (cachedLyrics != null) {
         debugPrint('📦 从缓存加载歌词: $musicId');
         setState(() {
@@ -650,23 +703,26 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
       // 缓存不存在，从服务器获取
       debugPrint('🌐 从服务器加载歌词: $musicId');
       final token = await TokenStorage.getToken();
-      if (token == null) return;
+      if (token == null ||
+          !mounted ||
+          requestGeneration != _lyricsRequestGeneration) {
+        return;
+      }
 
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/lyrics/get?music_id=$musicId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (!mounted || requestGeneration != _lyricsRequestGeneration) return;
         if (data['success'] == true && data['lyrics'] != null) {
           final lyricsContent = data['lyrics']['content'];
-          
+
           // 保存到缓存
           await _cacheService.cacheLyrics(musicId, lyricsContent);
-          
+          if (!mounted || requestGeneration != _lyricsRequestGeneration) return;
           setState(() {
             _currentLyrics = lyricsContent;
           });
@@ -678,18 +734,19 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
       }
     } catch (e) {
       debugPrint('加载歌词失败: $e');
-      setState(() {
-        _currentLyrics = null;
-      });
+      if (mounted && requestGeneration == _lyricsRequestGeneration) {
+        setState(() {
+          _currentLyrics = null;
+        });
+      }
     }
   }
 
   // 显示歌词管理对话框
   void _showLyricsManageDialog() {
     if (_playerService.currentPlayingId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先播放歌曲')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请先播放歌曲')));
       return;
     }
 
@@ -715,9 +772,8 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
   // 打开歌词特写页面
   void _openLyricsDetailScreen() {
     if (_playerService.currentPlayingId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先播放歌曲')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请先播放歌曲')));
       return;
     }
 
@@ -777,9 +833,9 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
     };
 
     Widget scaffold = Scaffold(
-        appBar: AppBar(
-          title: const Text('音乐播放器'),
-          actions: [
+      appBar: AppBar(
+        title: const Text('音乐播放器'),
+        actions: [
           // Web平台不显示缓存管理（只使用内存缓存，意义不大）
           if (!kIsWeb)
             IconButton(
@@ -860,11 +916,14 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                     ],
                   ),
                 ),
-                
+
                 // 搜索结果提示
                 if (_searchKeyword.isNotEmpty)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     color: Colors.blue[50],
                     child: Row(
                       children: [
@@ -881,7 +940,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                       ],
                     ),
                   ),
-                
+
                 // 音乐列表
                 Expanded(
                   child: _musicList.isEmpty
@@ -896,8 +955,9 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                           itemCount: _musicList.length,
                           itemBuilder: (context, index) {
                             final music = _musicList[index];
-                            final isCurrentPlaying = _playerService.currentPlayingId == music['id'];
-                            
+                            final isCurrentPlaying =
+                                _playerService.currentPlayingId == music['id'];
+
                             return Slidable(
                               key: ValueKey(music['id']),
                               endActionPane: ActionPane(
@@ -905,30 +965,42 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                                 extentRatio: 0.2, // 减小滑动区域宽度
                                 children: [
                                   SlidableAction(
-                                    onPressed: (context) => _deleteMusic(music['id']),
+                                    onPressed: (context) =>
+                                        _deleteMusic(music['id']),
                                     backgroundColor: Colors.red,
                                     foregroundColor: Colors.white,
                                     icon: Icons.delete,
                                     label: '删除',
-                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
                                   ),
                                 ],
                               ),
                               child: Card(
-                                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                color: isCurrentPlaying ? Colors.blue[50] : null,
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                color: isCurrentPlaying
+                                    ? Colors.blue[50]
+                                    : null,
                                 child: ListTile(
                                   leading: Icon(
                                     isCurrentPlaying && _playerService.isPlaying
                                         ? Icons.music_note
                                         : Icons.music_note_outlined,
-                                    color: isCurrentPlaying ? Colors.blue : Colors.grey,
+                                    color: isCurrentPlaying
+                                        ? Colors.blue
+                                        : Colors.grey,
                                     size: 40,
                                   ),
                                   title: Text(
                                     music['title'] ?? '未知标题',
                                     style: TextStyle(
-                                      fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.normal,
+                                      fontWeight: isCurrentPlaying
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
                                     ),
                                   ),
                                   subtitle: Text(
@@ -936,7 +1008,10 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                                     style: const TextStyle(fontSize: 12),
                                   ),
                                   trailing: IconButton(
-                                    icon: const Icon(Icons.share, color: Colors.green),
+                                    icon: const Icon(
+                                      Icons.share,
+                                      color: Colors.green,
+                                    ),
                                     onPressed: () => _shareMusic(music['id']),
                                     tooltip: '分享',
                                   ),
@@ -982,8 +1057,12 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                             // 歌词按钮
                             IconButton(
                               icon: Icon(
-                                _currentLyrics != null ? Icons.lyrics : Icons.lyrics_outlined,
-                                color: _currentLyrics != null ? Colors.blue : Colors.grey,
+                                _currentLyrics != null
+                                    ? Icons.lyrics
+                                    : Icons.lyrics_outlined,
+                                color: _currentLyrics != null
+                                    ? Colors.blue
+                                    : Colors.grey,
                               ),
                               onPressed: _openLyricsDetailScreen,
                               tooltip: '歌词',
@@ -997,26 +1076,39 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        
+
                         // 进度条
                         Row(
                           children: [
-                            Text(_playerService.formatDuration(_playerService.currentPosition)),
+                            Text(
+                              _playerService.formatDuration(
+                                _playerService.currentPosition,
+                              ),
+                            ),
                             Expanded(
                               child: Slider(
-                                value: _playerService.currentPosition.clamp(0.0, _playerService.totalDuration),
+                                value: _playerService.currentPosition.clamp(
+                                  0.0,
+                                  _playerService.totalDuration,
+                                ),
                                 min: 0.0,
-                                max: _playerService.totalDuration > 0 ? _playerService.totalDuration : 1.0,
+                                max: _playerService.totalDuration > 0
+                                    ? _playerService.totalDuration
+                                    : 1.0,
                                 onChanged: (value) {
                                   // 不需要本地状态更新
                                 },
                                 onChangeEnd: _seek,
                               ),
                             ),
-                            Text(_playerService.formatDuration(_playerService.totalDuration)),
+                            Text(
+                              _playerService.formatDuration(
+                                _playerService.totalDuration,
+                              ),
+                            ),
                           ],
                         ),
-                        
+
                         // 播放控制按钮
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -1044,7 +1136,11 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                             ),
                             const SizedBox(width: 16),
                             IconButton(
-                              icon: Icon(_playerService.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled),
+                              icon: Icon(
+                                _playerService.isPlaying
+                                    ? Icons.pause_circle_filled
+                                    : Icons.play_circle_filled,
+                              ),
                               iconSize: 64,
                               onPressed: _togglePlayPause,
                               color: Colors.blue,
@@ -1074,14 +1170,20 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                         IconButton(
                           icon: const Icon(Icons.chevron_left),
                           onPressed: _currentPage > 1
-                              ? () => _loadMusicList(page: _currentPage - 1, keyword: _searchKeyword)
+                              ? () => _loadMusicList(
+                                  page: _currentPage - 1,
+                                  keyword: _searchKeyword,
+                                )
                               : null,
                         ),
                         Text('$_currentPage / $_totalPages'),
                         IconButton(
                           icon: const Icon(Icons.chevron_right),
                           onPressed: _currentPage < _totalPages
-                              ? () => _loadMusicList(page: _currentPage + 1, keyword: _searchKeyword)
+                              ? () => _loadMusicList(
+                                  page: _currentPage + 1,
+                                  keyword: _searchKeyword,
+                                )
                               : null,
                         ),
                       ],
@@ -1123,7 +1225,6 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
       ),
     );
   }
-
 }
 
 // 键盘快捷键 Intent 类

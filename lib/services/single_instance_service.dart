@@ -1,11 +1,13 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// 单实例服务 - 确保桌面应用只能运行一个实例
 class SingleInstanceService {
-  static final SingleInstanceService _instance = SingleInstanceService._internal();
+  static final SingleInstanceService _instance =
+      SingleInstanceService._internal();
   factory SingleInstanceService() => _instance;
   SingleInstanceService._internal();
 
@@ -25,7 +27,7 @@ class SingleInstanceService {
     try {
       // 方法1: 尝试创建文件锁
       _isFirstInstance = await _tryFileLock();
-      
+
       if (!_isFirstInstance) {
         // 已有实例运行，尝试通知它显示窗口
         await _notifyExistingInstance();
@@ -55,7 +57,11 @@ class SingleInstanceService {
         // 文件存在，尝试通过端口检查是否有实例在运行
         // 如果端口被占用，说明已有实例运行
         try {
-          final testSocket = await Socket.connect('127.0.0.1', _lockPort, timeout: const Duration(milliseconds: 100));
+          final testSocket = await Socket.connect(
+            '127.0.0.1',
+            _lockPort,
+            timeout: const Duration(milliseconds: 100),
+          );
           await testSocket.close();
           // 连接成功，说明已有实例在监听
           debugPrint('检测到已有实例运行（端口 $_lockPort 已被占用）');
@@ -73,7 +79,7 @@ class SingleInstanceService {
       final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
       await _lockFile!.writeAsString(timestamp);
       debugPrint('创建单实例锁文件: $lockFilePath');
-      
+
       return true;
     } catch (e) {
       debugPrint('创建文件锁失败: $e');
@@ -85,7 +91,11 @@ class SingleInstanceService {
   Future<void> _notifyExistingInstance() async {
     try {
       // 尝试通过TCP连接通知已存在的实例
-      final socket = await Socket.connect('127.0.0.1', _lockPort, timeout: const Duration(seconds: 1));
+      final socket = await Socket.connect(
+        '127.0.0.1',
+        _lockPort,
+        timeout: const Duration(seconds: 1),
+      );
       socket.write('show_window\n');
       await socket.flush();
       socket.destroy();

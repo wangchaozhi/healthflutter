@@ -1,5 +1,6 @@
 // File upload utilities for non-Web platforms
 import 'dart:io';
+
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 
@@ -20,13 +21,13 @@ Future<void> uploadFileFromPlatformFile(
     callback(false, '文件路径为空');
     return;
   }
-  
+
   final file = File(platformFile.path!);
   if (!file.existsSync()) {
     callback(false, '文件不存在');
     return;
   }
-  
+
   try {
     // 开始上传，设置初始进度
     onProgress(0.1);
@@ -39,21 +40,24 @@ Future<void> uploadFileFromPlatformFile(
     request.files.add(
       await http.MultipartFile.fromPath('file', platformFile.path!),
     );
-    
+
     // 发送请求时显示上传中进度
     onProgress(0.5);
-    
+
     var streamedResponse = await request.send();
-    
+
     // 数据发送完成，等待服务器响应
     onProgress(0.9);
-    
+
     var response = await http.Response.fromStream(streamedResponse);
-    
+
     // 上传完成
     onProgress(1.0);
-    
-    callback(response.statusCode == 200, response.statusCode == 200 ? '上传成功' : '上传失败');
+
+    callback(
+      response.statusCode == 200,
+      response.statusCode == 200 ? '上传成功' : '上传失败',
+    );
   } catch (e) {
     callback(false, '上传失败: $e');
   }
@@ -72,10 +76,10 @@ Future<void> uploadFileFromDragPath(
     callback(false, '文件不存在');
     return;
   }
-  
+
   final separator = Platform.isWindows ? '\\' : '/';
   final fileName = path.split(separator).last;
-  
+
   try {
     // 开始上传，设置初始进度
     onProgress(0.1);
@@ -85,24 +89,25 @@ Future<void> uploadFileFromDragPath(
       Uri.parse('$baseUrl/file/upload'),
     );
     request.headers['Authorization'] = 'Bearer $token';
-    request.files.add(
-      await http.MultipartFile.fromPath('file', path),
-    );
-    
+    request.files.add(await http.MultipartFile.fromPath('file', path));
+
     // 发送请求时显示上传中进度
     onProgress(0.5);
-    
+
     var streamedResponse = await request.send();
-    
+
     // 数据发送完成，等待服务器响应
     onProgress(0.9);
-    
+
     var response = await http.Response.fromStream(streamedResponse);
-    
+
     // 上传完成
     onProgress(1.0);
-    
-    callback(response.statusCode == 200, response.statusCode == 200 ? '上传成功: $fileName' : '上传失败');
+
+    callback(
+      response.statusCode == 200,
+      response.statusCode == 200 ? '上传成功: $fileName' : '上传失败',
+    );
   } catch (e) {
     callback(false, '上传失败: $e');
   }
@@ -113,4 +118,3 @@ bool checkFileExists(String path) {
   final file = File(path);
   return file.existsSync();
 }
-

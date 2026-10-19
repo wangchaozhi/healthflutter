@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/auth_repository.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
@@ -32,9 +33,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return _isAuthenticated ? const HomeScreen() : const LoginScreen();

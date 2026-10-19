@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../models/activity.dart';
 import '../../themes/app_themes.dart';
 
@@ -57,18 +58,38 @@ class _ActivityListState extends State<ActivityList> {
           color: colors.surfaceCard,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 6)),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
           ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.inbox_rounded, size: 64, color: colors.textSecondary.withValues(alpha: 0.4)),
+            Icon(
+              Icons.inbox_rounded,
+              size: 64,
+              color: colors.textSecondary.withValues(alpha: 0.4),
+            ),
             const SizedBox(height: 16),
-            Text('暂无活动记录', style: TextStyle(fontSize: 16, color: colors.textSecondary, fontWeight: FontWeight.w500)),
+            Text(
+              '暂无活动记录',
+              style: TextStyle(
+                fontSize: 16,
+                color: colors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text('点击上方「添加记录」开始记录',
-                style: TextStyle(fontSize: 14, color: colors.textSecondary.withValues(alpha: 0.8))),
+            Text(
+              '点击上方「添加记录」开始记录',
+              style: TextStyle(
+                fontSize: 14,
+                color: colors.textSecondary.withValues(alpha: 0.8),
+              ),
+            ),
           ],
         ),
       );
@@ -81,8 +102,14 @@ class _ActivityListState extends State<ActivityList> {
           children: [
             Icon(Icons.list_alt_rounded, color: colors.primary, size: 22),
             const SizedBox(width: 8),
-            Text('活动记录列表',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: colors.textPrimary)),
+            Text(
+              '活动记录列表',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: colors.textPrimary,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 14),
@@ -125,17 +152,24 @@ class _ActivityListState extends State<ActivityList> {
                         ),
                         child: Center(
                           child: TextButton(
-                            onPressed: widget.canDelete ? () => _handleDelete(id) : null,
+                            onPressed: widget.canDelete
+                                ? () => _handleDelete(id)
+                                : null,
                             child: !widget.canDelete
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
                                     ),
                                   )
-                                : const Text('删除', style: TextStyle(color: Colors.white)),
+                                : const Text(
+                                    '删除',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
                           ),
                         ),
                       ),
@@ -153,11 +187,19 @@ class _ActivityListState extends State<ActivityList> {
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.calendar_today_rounded, size: 18, color: colors.primary),
+                              Icon(
+                                Icons.calendar_today_rounded,
+                                size: 18,
+                                color: colors.primary,
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 '${item.recordDate} ${item.recordTime}',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: colors.textPrimary),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: colors.textPrimary,
+                                ),
                               ),
                               const Spacer(),
                               _TagChip(isAuto: item.isAuto, colors: colors),
@@ -166,16 +208,28 @@ class _ActivityListState extends State<ActivityList> {
                           const SizedBox(height: 10),
                           Row(
                             children: [
-                              _Meta(icon: Icons.timer_outlined, text: '${item.duration} 分钟', colors: colors),
+                              _Meta(
+                                icon: Icons.timer_outlined,
+                                text: '${item.duration} 分钟',
+                                colors: colors,
+                              ),
                               const SizedBox(width: 16),
-                              _Meta(icon: Icons.today_outlined, text: item.weekDay, colors: colors),
+                              _Meta(
+                                icon: Icons.today_outlined,
+                                text: item.weekDay,
+                                colors: colors,
+                              ),
                             ],
                           ),
                           if (item.remark.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Text(
                               item.remark,
-                              style: TextStyle(fontSize: 13, color: colors.textSecondary, fontStyle: FontStyle.italic),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colors.textSecondary,
+                                fontStyle: FontStyle.italic,
+                              ),
                             ),
                           ],
                         ],
@@ -210,7 +264,11 @@ class _TagChip extends StatelessWidget {
       ),
       child: Text(
         isAuto ? '自动' : '手动',
-        style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12),
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
       ),
     );
   }

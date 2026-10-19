@@ -4,8 +4,14 @@
 import 'dart:typed_data';
 
 /// Stub for downloadFileWebDirect (non-web platforms)
-Future<void> downloadFileWebDirect(String url, String token, String fileName) async {
-  throw UnsupportedError('downloadFileWebDirect is only available on web platform');
+Future<void> downloadFileWebDirect(
+  String url,
+  String token,
+  String fileName,
+) async {
+  throw UnsupportedError(
+    'downloadFileWebDirect is only available on web platform',
+  );
 }
 
 /// Stub for downloadFileWeb (non-web platforms)
@@ -20,11 +26,17 @@ Future<void> downloadFileWebDirectWithProgress(
   String fileName,
   Function(double progress) onProgress,
 ) async {
-  throw UnsupportedError('downloadFileWebDirectWithProgress is only available on web platform');
+  throw UnsupportedError(
+    'downloadFileWebDirectWithProgress is only available on web platform',
+  );
 }
 
 /// Stub for downloadFileNative (when imported by web platform as stub)
-Future<String> downloadFileNative(String url, String token, String fileName) async {
+Future<String> downloadFileNative(
+  String url,
+  String token,
+  String fileName,
+) async {
   throw UnsupportedError('downloadFileNative is not available on web platform');
 }
 
@@ -35,10 +47,14 @@ Future<String> downloadFileNativeWithProgress(
   String fileName,
   Function(double progress) onProgress,
 ) async {
-  throw UnsupportedError('downloadFileNativeWithProgress is not available on web platform');
+  throw UnsupportedError(
+    'downloadFileNativeWithProgress is not available on web platform',
+  );
 }
 
 /// Stub for openDownloadDirectory (when imported by web platform as stub)
 Future<void> openDownloadDirectory(String filePath) async {
-  throw UnsupportedError('openDownloadDirectory is not available on web platform');
+  throw UnsupportedError(
+    'openDownloadDirectory is not available on web platform',
+  );
 }

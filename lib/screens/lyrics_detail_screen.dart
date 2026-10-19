@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
 import '../config/api_config.dart';
 import '../services/token_storage.dart';
 import '../services/music_player_service.dart';
@@ -60,16 +63,16 @@ class _LyricsDetailScreenState extends State<LyricsDetailScreen> {
   void _onPlayerStateChanged() {
     if (mounted) {
       // 检查是否切换到了新歌曲
-      if (_playerService.currentPlayingId != null && 
+      if (_playerService.currentPlayingId != null &&
           _playerService.currentPlayingId != _lastMusicId) {
         _lastMusicId = _playerService.currentPlayingId;
         _currentTitle = _playerService.currentTitle ?? '未知';
         _currentArtist = _playerService.currentArtist ?? '未知艺术家';
-        
+
         // 自动加载新歌曲的歌词
         _loadLyrics(_playerService.currentPlayingId!);
       }
-      
+
       setState(() {
         // 触发UI更新
       });
@@ -98,19 +101,17 @@ class _LyricsDetailScreenState extends State<LyricsDetailScreen> {
 
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/lyrics/get?music_id=$musicId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         if (data['success'] == true && data['lyrics'] != null) {
           final lyricsContent = data['lyrics']['content'];
-          
+
           // 保存到缓存
           await _cacheService.cacheLyrics(musicId, lyricsContent);
-          
+
           if (mounted) {
             setState(() {
               _currentLyrics = lyricsContent;
@@ -137,9 +138,8 @@ class _LyricsDetailScreenState extends State<LyricsDetailScreen> {
   // 显示歌词管理对话框
   void _showLyricsManageDialog() {
     if (_playerService.currentPlayingId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先播放歌曲')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请先播放歌曲')));
       return;
     }
 
@@ -271,9 +271,9 @@ class _LyricsDetailScreenState extends State<LyricsDetailScreen> {
             onPressed: () => Navigator.pop(context),
             tooltip: '返回',
           ),
-          
+
           const Spacer(),
-          
+
           // 歌词管理按钮
           IconButton(
             icon: const Icon(Icons.more_vert, color: Colors.white),
@@ -293,7 +293,10 @@ class _LyricsDetailScreenState extends State<LyricsDetailScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         ListTile(
-                          leading: const Icon(Icons.edit_note, color: Colors.blue),
+                          leading: const Icon(
+                            Icons.edit_note,
+                            color: Colors.blue,
+                          ),
                           title: const Text('管理歌词'),
                           onTap: () {
                             Navigator.pop(context);
@@ -359,9 +362,9 @@ class _LyricsDetailScreenState extends State<LyricsDetailScreen> {
               color: Colors.white.withValues(alpha: 0.7),
             ),
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // 歌曲名称
           Text(
             _currentTitle,
@@ -374,9 +377,9 @@ class _LyricsDetailScreenState extends State<LyricsDetailScreen> {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
           ),
-          
+
           const SizedBox(height: 8),
-          
+
           // 艺术家名称
           Text(
             _currentArtist,
@@ -513,9 +516,7 @@ class _LyricsDetailScreenState extends State<LyricsDetailScreen> {
                 ),
                 child: IconButton(
                   icon: Icon(
-                    _playerService.isPlaying
-                        ? Icons.pause
-                        : Icons.play_arrow,
+                    _playerService.isPlaying ? Icons.pause : Icons.play_arrow,
                   ),
                   color: Colors.blue.shade700,
                   iconSize: 40,

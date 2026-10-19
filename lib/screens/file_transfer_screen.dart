@@ -3,17 +3,29 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
+
 import 'dart:convert';
+
 import 'package:desktop_drop/desktop_drop.dart';
+
 import '../services/token_storage.dart';
 import '../config/api_config.dart';
 import '../utils/debounce.dart';
 import '../utils/platform_utils.dart' as platform;
-import '../utils/file_upload_io.dart' if (dart.library.html) '../utils/file_upload_stub.dart' as file_upload;
-import '../utils/web_drag_drop_stub.dart' if (dart.library.html) '../utils/web_drag_drop.dart';
-import '../utils/web_file_upload_stub.dart' if (dart.library.html) '../utils/web_file_upload.dart' as web_upload;
-import '../utils/web_download_stub.dart' if (dart.library.html) '../utils/web_download.dart' as web_download;
-import '../utils/native_download.dart' if (dart.library.html) '../utils/web_download_stub.dart' as native_download;
+import '../utils/file_upload_io.dart'
+    if (dart.library.html) '../utils/file_upload_stub.dart'
+    as file_upload;
+import '../utils/web_drag_drop_stub.dart'
+    if (dart.library.html) '../utils/web_drag_drop.dart';
+import '../utils/web_file_upload_stub.dart'
+    if (dart.library.html) '../utils/web_file_upload.dart'
+    as web_upload;
+import '../utils/web_download_stub.dart'
+    if (dart.library.html) '../utils/web_download.dart'
+    as web_download;
+import '../utils/native_download.dart'
+    if (dart.library.html) '../utils/web_download_stub.dart'
+    as native_download;
 
 class FileTransferScreen extends StatefulWidget {
   const FileTransferScreen({super.key});
@@ -33,14 +45,15 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
   int _totalPages = 1;
   int _total = 0;
   final int _pageSize = 10;
-  
+
   // 文本输入控制器（用于移动端Web手动粘贴）
   final TextEditingController _textController = TextEditingController();
-  
+
   // 防抖
   final DebounceState _uploadDebounce = DebounceState();
   final DebounceState _deleteDebounce = DebounceState();
   final DebounceState _clipboardDebounce = DebounceState();
+  int _loadGeneration = 0;
 
   @override
   void initState() {
@@ -50,12 +63,17 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
 
   @override
   void dispose() {
+    _loadGeneration++;
     _textController.dispose();
+    _uploadDebounce.dispose();
+    _deleteDebounce.dispose();
+    _clipboardDebounce.dispose();
     super.dispose();
   }
 
   // 加载文件列表
   Future<void> _loadFiles({int page = 1}) async {
+    final generation = ++_loadGeneration;
     setState(() {
       _isLoading = true;
     });
@@ -64,23 +82,24 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
       final token = await TokenStorage.getToken();
       if (token == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('请先登录')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('请先登录')));
         }
         return;
       }
 
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/file/list?page=$page&page_size=$_pageSize'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
+        Uri.parse(
+          '${ApiConfig.baseUrl}/file/list?page=$page&page_size=$_pageSize',
+        ),
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
-        if (data['success'] == true) {
+        if (data['success'] == true &&
+            mounted &&
+            generation == _loadGeneration) {
           setState(() {
             _fileList = data['data']['list'] ?? [];
             _total = data['data']['total'] ?? 0;
@@ -90,23 +109,21 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           });
         } else {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(data['message'] ?? '加载失败')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(data['message'] ?? '加载失败')));
           }
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('加载失败')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('加载失败')));
         }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载失败: $e')),
-        );
+      if (mounted && generation == _loadGeneration) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('加载失败: $e')));
       }
     } finally {
       if (mounted) {
@@ -120,7 +137,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
   // Web端拖拽上传处理
   Future<void> _handleWebFileDrop(List<dynamic> files) async {
     if (files.isEmpty) return;
-    
+
     for (var file in files) {
       await _uploadWebFile(file);
     }
@@ -136,9 +153,8 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           final token = await TokenStorage.getToken();
           if (token == null) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('请先登录')),
-              );
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('请先登录')));
             }
             return;
           }
@@ -162,9 +178,8 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           }
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('上传失败: $e')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('上传失败: $e')));
           }
         }
       },
@@ -197,9 +212,8 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           final token = await TokenStorage.getToken();
           if (token == null) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('请先登录')),
-              );
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('请先登录')));
             }
             return;
           }
@@ -216,9 +230,8 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
             ApiConfig.baseUrl,
             (success, message) {
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(message)),
-                );
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text(message)));
                 if (success) {
                   _loadFiles(page: _currentPage);
                 }
@@ -230,9 +243,8 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           );
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('上传失败: $e')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('上传失败: $e')));
           }
         }
       },
@@ -274,9 +286,8 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           final token = await TokenStorage.getToken();
           if (token == null) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('请先登录')),
-              );
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('请先登录')));
             }
             return;
           }
@@ -306,9 +317,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           }
 
           // 打开文件选择器（此时不显示loading）
-          final pickedFile = await FilePicker.pickFile(
-            type: FileType.any,
-          );
+          final pickedFile = await FilePicker.pickFile(type: FileType.any);
 
           if (pickedFile?.path == null) {
             return;
@@ -326,9 +335,8 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
             ApiConfig.baseUrl,
             (success, message) {
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(message)),
-                );
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text(message)));
                 if (success) {
                   _loadFiles(page: _currentPage);
                 }
@@ -340,9 +348,8 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           );
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('上传失败: $e')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('上传失败: $e')));
           }
         } finally {
           if (mounted) {
@@ -365,20 +372,20 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           final token = await TokenStorage.getToken();
           if (token == null) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('请先登录')),
-              );
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('请先登录')));
             }
             return;
           }
 
           // 获取粘贴板内容
           final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
-          if (clipboardData == null || clipboardData.text == null || clipboardData.text!.isEmpty) {
+          if (clipboardData == null ||
+              clipboardData.text == null ||
+              clipboardData.text!.isEmpty) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('粘贴板为空')),
-              );
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('粘贴板为空')));
             }
             return;
           }
@@ -386,9 +393,8 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           await _saveTextContent(clipboardData.text!);
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('保存失败: $e')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('保存失败: $e')));
           }
         }
       },
@@ -401,18 +407,16 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
       final token = await TokenStorage.getToken();
       if (token == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('请先登录')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('请先登录')));
         }
         return;
       }
 
       if (content.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('内容为空')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('内容为空')));
         }
         return;
       }
@@ -424,41 +428,36 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          'content': content,
-        }),
+        body: jsonEncode({'content': content}),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         if (data['success'] == true) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('保存成功')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('保存成功')));
             // 清空输入框
             _textController.clear();
           }
           _loadFiles(page: _currentPage);
         } else {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(data['message'] ?? '保存失败')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(data['message'] ?? '保存失败')));
           }
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('保存失败')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('保存失败')));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('保存失败: $e')));
       }
     }
   }
@@ -481,20 +480,18 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
         if (data['success'] == true) {
           _showShareDialog(fileName, data['download_url'] as String);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(data['message'] ?? '生成链接失败')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(data['message'] ?? '生成链接失败')));
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('生成分享链接失败')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('生成分享链接失败')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('分享失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('分享失败: $e')));
       }
     }
   }
@@ -511,7 +508,10 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
               Expanded(
                 child: Text(
                   '分享链接',
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -557,9 +557,8 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: url));
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('链接已复制到剪贴板')),
-                );
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('链接已复制到剪贴板')));
               },
             ),
           ],
@@ -582,27 +581,23 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
 
           final response = await http.delete(
             Uri.parse('${ApiConfig.baseUrl}/file/delete?id=$fileId'),
-            headers: {
-              'Authorization': 'Bearer $token',
-            },
+            headers: {'Authorization': 'Bearer $token'},
           );
 
           if (response.statusCode == 200) {
             final data = jsonDecode(utf8.decode(response.bodyBytes));
             if (data['success'] == true) {
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('删除成功')),
-                );
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('删除成功')));
               }
               _loadFiles(page: _currentPage);
             }
           }
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('删除失败: $e')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('删除失败: $e')));
           }
         }
       },
@@ -622,9 +617,8 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
       final token = await TokenStorage.getToken();
       if (token == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('请先登录')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('请先登录')));
         }
         return;
       }
@@ -636,8 +630,8 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
         // Web平台直接下载（带进度）
         try {
           await web_download.downloadFileWebDirectWithProgress(
-            downloadUrl, 
-            token, 
+            downloadUrl,
+            token,
             fileName,
             (progress) {
               if (mounted) {
@@ -648,24 +642,22 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
             },
           );
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('下载成功: $fileName')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('下载成功: $fileName')));
           }
         } catch (e) {
           debugPrint('Web端下载失败: $e');
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('下载失败: $e')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('下载失败: $e')));
           }
         }
       } else {
         // 移动端和桌面端下载（带进度）
         try {
           final filePath = await native_download.downloadFileNativeWithProgress(
-            downloadUrl, 
-            token, 
+            downloadUrl,
+            token,
             fileName,
             (progress) {
               if (mounted) {
@@ -678,7 +670,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
           if (mounted) {
             // 判断是否是移动端
             final isMobile = platform.isMobile;
-            
+
             if (isMobile) {
               // 移动端：简单提示，不显示路径和打开目录按钮
               ScaffoldMessenger.of(context).showSnackBar(
@@ -700,7 +692,9 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('无法打开文件管理器，请手动访问: $filePath')),
+                            SnackBar(
+                              content: Text('无法打开文件管理器，请手动访问: $filePath'),
+                            ),
                           );
                         }
                       }
@@ -718,17 +712,15 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
             if (e.toString().contains('Permission denied')) {
               errorMessage = '下载失败: 需要存储权限才能下载文件，请在设置中授予存储权限';
             }
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(errorMessage)),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(errorMessage)));
           }
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('下载失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('下载失败: $e')));
       }
     } finally {
       // 清除下载状态
@@ -747,151 +739,158 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
     return Stack(
       children: [
         Scaffold(
-          appBar: AppBar(
-            title: const Text('文件传输'),
-            centerTitle: true,
-          ),
+          appBar: AppBar(title: const Text('文件传输'), centerTitle: true),
           body: LayoutBuilder(
-        builder: (context, constraints) {
-          final maxWidth = constraints.maxWidth > 1200 ? 1200.0 : constraints.maxWidth;
-          final isMobileScreen = constraints.maxWidth < 600; // 判断是否为移动端屏幕尺寸
-          
-          return Center(
-            child: SizedBox(
-              width: maxWidth,
-              child: Column(
-                children: [
-                  // 操作按钮区域和拖拽上传区域
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        // 拖拽上传区域（移动端屏幕隐藏）
-                        if (!isMobileScreen && kIsWeb)
-                          // Web端拖拽上传
-                          WebDropZone(
-                            onFilesDropped: (files) {
-                              _handleWebFileDrop(files);
-                            },
-                            child: Container(
-                              width: double.infinity,
-                              height: 120,
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: Colors.grey,
-                                  width: 2,
-                                  style: BorderStyle.solid,
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                                color: Colors.grey.withValues(alpha: 0.05),
-                              ),
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.cloud_upload,
-                                      size: 48,
-                                      color: Colors.grey[600],
+            builder: (context, constraints) {
+              final maxWidth = constraints.maxWidth > 1200
+                  ? 1200.0
+                  : constraints.maxWidth;
+              final isMobileScreen = constraints.maxWidth < 600; // 判断是否为移动端屏幕尺寸
+
+              return Center(
+                child: SizedBox(
+                  width: maxWidth,
+                  child: Column(
+                    children: [
+                      // 操作按钮区域和拖拽上传区域
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            // 拖拽上传区域（移动端屏幕隐藏）
+                            if (!isMobileScreen && kIsWeb)
+                              // Web端拖拽上传
+                              WebDropZone(
+                                onFilesDropped: (files) {
+                                  _handleWebFileDrop(files);
+                                },
+                                child: Container(
+                                  width: double.infinity,
+                                  height: 120,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.grey,
+                                      width: 2,
+                                      style: BorderStyle.solid,
                                     ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      '拖拽文件到此处上传',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '或点击下方按钮选择文件',
-                                      style: TextStyle(
-                                        color: Colors.grey[500],
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          )
-                        else if (!isMobileScreen)
-                          // 桌面端拖拽上传（移动端屏幕隐藏）
-                          Builder(
-                            builder: (context) {
-                              // 在非Web平台检查是否为桌面端
-                              if (platform.isMobile) {
-                                return const SizedBox.shrink();
-                              }
-                              return Column(
-                                children: [
-                                  DropTarget(
-                                    onDragDone: (detail) async {
-                                      // 处理拖拽的文件
-                                      for (var file in detail.files) {
-                                        await _uploadFileDirectly(file.path);
-                                      }
-                                    },
-                                    onDragEntered: (detail) {
-                                      setState(() {
-                                        // 可以添加拖拽进入时的视觉反馈
-                                      });
-                                    },
-                                    onDragExited: (detail) {
-                                      setState(() {
-                                        // 可以添加拖拽离开时的视觉反馈
-                                      });
-                                    },
-                                    child: Container(
-                                      width: double.infinity,
-                                      height: 120,
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: Colors.grey,
-                                          width: 2,
-                                          style: BorderStyle.solid,
+                                    borderRadius: BorderRadius.circular(8),
+                                    color: Colors.grey.withValues(alpha: 0.05),
+                                  ),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.cloud_upload,
+                                          size: 48,
+                                          color: Colors.grey[600],
                                         ),
-                                        borderRadius: BorderRadius.circular(8),
-                                        color: Colors.grey.withValues(alpha: 0.05),
-                                      ),
-                                      child: Center(
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.cloud_upload,
-                                              size: 48,
-                                              color: Colors.grey[600],
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              '拖拽文件到此处上传',
-                                              style: TextStyle(
-                                                color: Colors.grey[600],
-                                                fontSize: 16,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              '或点击下方按钮选择文件',
-                                              style: TextStyle(
-                                                color: Colors.grey[500],
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          '拖拽文件到此处上传',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 16,
+                                          ),
                                         ),
-                                      ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '或点击下方按钮选择文件',
+                                          style: TextStyle(
+                                            color: Colors.grey[500],
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(height: 16),
-                                ],
-                              );
-                            },
-                          ),
-                            ],
-                          ),
+                                ),
+                              )
+                            else if (!isMobileScreen)
+                              // 桌面端拖拽上传（移动端屏幕隐藏）
+                              Builder(
+                                builder: (context) {
+                                  // 在非Web平台检查是否为桌面端
+                                  if (platform.isMobile) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Column(
+                                    children: [
+                                      DropTarget(
+                                        onDragDone: (detail) async {
+                                          // 处理拖拽的文件
+                                          for (var file in detail.files) {
+                                            await _uploadFileDirectly(
+                                              file.path,
+                                            );
+                                          }
+                                        },
+                                        onDragEntered: (detail) {
+                                          setState(() {
+                                            // 可以添加拖拽进入时的视觉反馈
+                                          });
+                                        },
+                                        onDragExited: (detail) {
+                                          setState(() {
+                                            // 可以添加拖拽离开时的视觉反馈
+                                          });
+                                        },
+                                        child: Container(
+                                          width: double.infinity,
+                                          height: 120,
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                              color: Colors.grey,
+                                              width: 2,
+                                              style: BorderStyle.solid,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            color: Colors.grey.withValues(
+                                              alpha: 0.05,
+                                            ),
+                                          ),
+                                          child: Center(
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.cloud_upload,
+                                                  size: 48,
+                                                  color: Colors.grey[600],
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  '拖拽文件到此处上传',
+                                                  style: TextStyle(
+                                                    color: Colors.grey[600],
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '或点击下方按钮选择文件',
+                                                  style: TextStyle(
+                                                    color: Colors.grey[500],
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                    ],
+                                  );
+                                },
+                              ),
+                          ],
                         ),
+                      ),
                       // 按钮区域
                       Padding(
                         padding: const EdgeInsets.all(16.0),
@@ -902,7 +901,9 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
                               children: [
                                 Expanded(
                                   child: ElevatedButton.icon(
-                                    onPressed: _uploadDebounce.canExecute ? _uploadFile : null,
+                                    onPressed: _uploadDebounce.canExecute
+                                        ? _uploadFile
+                                        : null,
                                     icon: const Icon(Icons.upload_file),
                                     label: const Text('上传文件'),
                                   ),
@@ -912,13 +913,17 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: ElevatedButton.icon(
-                                      onPressed: _clipboardDebounce.canExecute ? _saveClipboard : null,
+                                      onPressed: _clipboardDebounce.canExecute
+                                          ? _saveClipboard
+                                          : null,
                                       icon: _clipboardDebounce.canExecute
                                           ? const Icon(Icons.content_paste)
                                           : const SizedBox(
                                               width: 20,
                                               height: 20,
-                                              child: CircularProgressIndicator(strokeWidth: 2),
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
                                             ),
                                       label: const Text('保存粘贴板'),
                                     ),
@@ -943,15 +948,19 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton.icon(
-                                  onPressed: _clipboardDebounce.canExecute 
-                                    ? () => _saveTextContent(_textController.text)
-                                    : null,
+                                  onPressed: _clipboardDebounce.canExecute
+                                      ? () => _saveTextContent(
+                                          _textController.text,
+                                        )
+                                      : null,
                                   icon: _clipboardDebounce.canExecute
                                       ? const Icon(Icons.save)
                                       : const SizedBox(
                                           width: 20,
                                           height: 20,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
                                         ),
                                   label: const Text('保存文本'),
                                 ),
@@ -960,11 +969,11 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
                           ],
                         ),
                       ),
-                  // 文件列表
-                  Expanded(
-                    child: _isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : _fileList.isEmpty
+                      // 文件列表
+                      Expanded(
+                        child: _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : _fileList.isEmpty
                             ? const Center(child: Text('暂无文件'))
                             : ListView.builder(
                                 itemCount: _fileList.length,
@@ -976,7 +985,9 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
                                       vertical: 8,
                                     ),
                                     child: ListTile(
-                                      leading: const Icon(Icons.insert_drive_file),
+                                      leading: const Icon(
+                                        Icons.insert_drive_file,
+                                      ),
                                       title: Text(file['file_name'] ?? ''),
                                       subtitle: Text(
                                         '${file['file_size_str'] ?? ''} • ${file['created_at'] ?? ''}',
@@ -985,48 +996,71 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           // 下载按钮/进度
-                                          _isDownloading && _downloadingFileId == file['id']
-                                            ? SizedBox(
-                                                width: 80,
-                                                child: Column(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    LinearProgressIndicator(
-                                                      value: _downloadProgress,
-                                                      backgroundColor: Colors.grey[300],
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      '${(_downloadProgress * 100).toStringAsFixed(0)}%',
-                                                      style: const TextStyle(fontSize: 12),
-                                                    ),
-                                                  ],
+                                          _isDownloading &&
+                                                  _downloadingFileId ==
+                                                      file['id']
+                                              ? SizedBox(
+                                                  width: 80,
+                                                  child: Column(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      LinearProgressIndicator(
+                                                        value:
+                                                            _downloadProgress,
+                                                        backgroundColor:
+                                                            Colors.grey[300],
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        '${(_downloadProgress * 100).toStringAsFixed(0)}%',
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                )
+                                              : IconButton(
+                                                  icon: const Icon(
+                                                    Icons.download,
+                                                  ),
+                                                  onPressed: _isDownloading
+                                                      ? null
+                                                      : () => _downloadFile(
+                                                          file['id'],
+                                                          file['file_name'],
+                                                        ),
                                                 ),
-                                              )
-                                            : IconButton(
-                                                icon: const Icon(Icons.download),
-                                                onPressed: _isDownloading 
-                                                  ? null 
-                                                  : () => _downloadFile(
-                                                      file['id'],
-                                                      file['file_name'],
-                                                    ),
-                                              ),
                                           IconButton(
                                             icon: Icon(
-                                              (file['share_token'] != null && (file['share_token'] as String).isNotEmpty)
+                                              (file['share_token'] != null &&
+                                                      (file['share_token']
+                                                              as String)
+                                                          .isNotEmpty)
                                                   ? Icons.link
                                                   : Icons.share,
-                                              color: (file['share_token'] != null && (file['share_token'] as String).isNotEmpty)
-                                                  ? Theme.of(context).colorScheme.primary
+                                              color:
+                                                  (file['share_token'] !=
+                                                          null &&
+                                                      (file['share_token']
+                                                              as String)
+                                                          .isNotEmpty)
+                                                  ? Theme.of(context)
+                                                        .colorScheme
+                                                        .primary
                                                   : null,
                                             ),
                                             tooltip: '分享',
-                                            onPressed: () => _shareFile(file['id'], file['file_name']),
+                                            onPressed: () => _shareFile(
+                                              file['id'],
+                                              file['file_name'],
+                                            ),
                                           ),
                                           IconButton(
                                             icon: const Icon(Icons.delete),
-                                            onPressed: _deleteDebounce.canExecute
+                                            onPressed:
+                                                _deleteDebounce.canExecute
                                                 ? () => _deleteFile(file['id'])
                                                 : null,
                                           ),
@@ -1036,36 +1070,38 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
                                   );
                                 },
                               ),
-                  ),
-                  // 分页控件
-                  if (_totalPages > 1)
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.chevron_left),
-                            onPressed: _currentPage > 1
-                                ? () => _loadFiles(page: _currentPage - 1)
-                                : null,
-                          ),
-                          Text('第 $_currentPage / $_totalPages 页 (共 $_total 个文件)'),
-                          IconButton(
-                            icon: const Icon(Icons.chevron_right),
-                            onPressed: _currentPage < _totalPages
-                                ? () => _loadFiles(page: _currentPage + 1)
-                                : null,
-                          ),
-                        ],
                       ),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+                      // 分页控件
+                      if (_totalPages > 1)
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.chevron_left),
+                                onPressed: _currentPage > 1
+                                    ? () => _loadFiles(page: _currentPage - 1)
+                                    : null,
+                              ),
+                              Text(
+                                '第 $_currentPage / $_totalPages 页 (共 $_total 个文件)',
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.chevron_right),
+                                onPressed: _currentPage < _totalPages
+                                    ? () => _loadFiles(page: _currentPage + 1)
+                                    : null,
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         ),
         // 全局上传loading遮罩
         if (_isUploading)
@@ -1080,10 +1116,7 @@ class _FileTransferScreenState extends State<FileTransferScreen> {
                     children: [
                       CircularProgressIndicator(),
                       SizedBox(height: 16),
-                      Text(
-                        '正在上传...',
-                        style: TextStyle(fontSize: 16),
-                      ),
+                      Text('正在上传...', style: TextStyle(fontSize: 16)),
                     ],
                   ),
                 ),

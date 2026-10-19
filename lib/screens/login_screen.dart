@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../services/auth_repository.dart';
 import '../services/token_storage.dart';
 import 'home_screen.dart';
@@ -16,31 +17,30 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
-  bool _rememberPassword = false;
+  bool _rememberUsername = false;
 
   @override
   void initState() {
     super.initState();
     _checkLoginStatus();
-    _loadRememberedCredentials();
+    _loadRememberedUsername();
   }
 
   Future<void> _checkLoginStatus() async {
     final isLoggedIn = await AuthRepository.instance.isLoggedIn();
     if (isLoggedIn && mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
     }
   }
 
-  Future<void> _loadRememberedCredentials() async {
-    final credentials = await TokenStorage.getRememberedCredentials();
-    if (credentials.username != null && credentials.password != null) {
+  Future<void> _loadRememberedUsername() async {
+    final username = await TokenStorage.getRememberedUsername();
+    if (username != null && mounted) {
       setState(() {
-        _usernameController.text = credentials.username!;
-        _passwordController.text = credentials.password!;
-        _rememberPassword = true;
+        _usernameController.text = username;
+        _rememberUsername = true;
       });
     }
   }
@@ -66,32 +66,31 @@ class _LoginScreenState extends State<LoginScreen> {
       _passwordController.text,
     );
 
+    if (!mounted) return;
     setState(() {
       _isLoading = false;
     });
 
-    if (!mounted) return;
-
     if (result.isOk) {
-      if (_rememberPassword) {
-        await TokenStorage.saveRememberedCredentials(
+      if (_rememberUsername) {
+        await TokenStorage.saveRememberedUsername(
           _usernameController.text.trim(),
-          _passwordController.text,
         );
       } else {
-        await TokenStorage.clearRememberedCredentials();
+        await TokenStorage.clearRememberedUsername();
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('登录成功')),
-      );
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('登录成功')));
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message.isEmpty ? '登录失败' : result.message)),
+        SnackBar(
+          content: Text(result.message.isEmpty ? '登录失败' : result.message),
+        ),
       );
     }
   }
@@ -104,7 +103,9 @@ class _LoginScreenState extends State<LoginScreen> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               // 桌面端限制最大宽度为600px
-              final maxWidth = constraints.maxWidth > 600 ? 600.0 : constraints.maxWidth;
+              final maxWidth = constraints.maxWidth > 600
+                  ? 600.0
+                  : constraints.maxWidth;
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(24.0),
                 child: ConstrainedBox(
@@ -115,95 +116,97 @@ class _LoginScreenState extends State<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                  const Icon(
-                    Icons.lock_outline,
-                    size: 80,
-                    color: Colors.blue,
-                  ),
-                  const SizedBox(height: 32),
-                  const Text(
-                    '登录',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 48),
-                  TextFormField(
-                    controller: _usernameController,
-                    decoration: const InputDecoration(
-                      labelText: '用户名',
-                      prefixIcon: Icon(Icons.person),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return '请输入用户名';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
-                      labelText: '密码',
-                      prefixIcon: const Icon(Icons.lock),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
+                        const Icon(
+                          Icons.lock_outline,
+                          size: 80,
+                          color: Colors.blue,
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                      border: const OutlineInputBorder(),
-                    ),
-                    obscureText: _obscurePassword,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return '请输入密码';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  CheckboxListTile(
-                    title: const Text('记住密码'),
-                    value: _rememberPassword,
-                    onChanged: (value) {
-                      setState(() {
-                        _rememberPassword = value ?? false;
-                      });
-                    },
-                    contentPadding: EdgeInsets.zero,
-                    controlAffinity: ListTileControlAffinity.leading,
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _handleLogin,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text(
-                            '登录',
-                            style: TextStyle(fontSize: 16),
+                        const SizedBox(height: 32),
+                        const Text(
+                          '登录',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
                           ),
-                  ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 48),
+                        TextFormField(
+                          controller: _usernameController,
+                          decoration: const InputDecoration(
+                            labelText: '用户名',
+                            prefixIcon: Icon(Icons.person),
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return '请输入用户名';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _passwordController,
+                          decoration: InputDecoration(
+                            labelText: '密码',
+                            prefixIcon: const Icon(Icons.lock),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                            border: const OutlineInputBorder(),
+                          ),
+                          obscureText: _obscurePassword,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return '请输入密码';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        CheckboxListTile(
+                          title: const Text('记住用户名'),
+                          value: _rememberUsername,
+                          onChanged: (value) {
+                            setState(() {
+                              _rememberUsername = value ?? false;
+                            });
+                          },
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton(
+                          onPressed: _isLoading ? null : _handleLogin,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  '登录',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                        ),
                         const SizedBox(height: 16),
                         TextButton(
                           onPressed: () {
@@ -223,4 +226,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

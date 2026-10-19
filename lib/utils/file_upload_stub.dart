@@ -33,4 +33,3 @@ Future<void> uploadFileFromDragPath(
 bool checkFileExists(String path) {
   return false;
 }
-

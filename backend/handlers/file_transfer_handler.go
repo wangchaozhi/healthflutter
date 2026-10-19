@@ -32,6 +32,7 @@ func formatFileSize(size int64) string {
 
 // 文件上传目录
 const uploadDir = "uploads"
+const maxFileUploadBytes = 10 << 20
 
 // FileUploadHandler 处理文件上传
 func FileUploadHandler(w http.ResponseWriter, r *http.Request) {
@@ -46,9 +47,13 @@ func FileUploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 解析multipart form
-	err := r.ParseMultipartForm(10 << 20) // 10MB
+	r.Body = http.MaxBytesReader(w, r.Body, maxFileUploadBytes+(1<<20))
+	err := r.ParseMultipartForm(2 << 20)
 	if err != nil {
+		if _, ok := err.(*http.MaxBytesError); ok {
+			http.Error(w, "文件不能超过10MB", http.StatusRequestEntityTooLarge)
+			return
+		}
 		http.Error(w, "解析表单失败", http.StatusBadRequest)
 		return
 	}
@@ -68,8 +73,10 @@ func FileUploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 生成唯一文件名
 	timestamp := utils.NowTimestamp()
-	ext := filepath.Ext(handler.Filename)
-	fileName := fmt.Sprintf("%s_%s%s", strings.TrimSuffix(handler.Filename, ext), timestamp, ext)
+	originalName := filepath.Base(handler.Filename)
+	originalName = strings.ReplaceAll(originalName, "\\", "_")
+	ext := filepath.Ext(originalName)
+	fileName := fmt.Sprintf("%s_%s%s", strings.TrimSuffix(originalName, ext), timestamp, ext)
 	filePath := filepath.Join(uploadDir, fmt.Sprintf("%d_%s", userID, fileName))
 
 	// 创建目标文件
@@ -78,11 +85,22 @@ func FileUploadHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "创建文件失败", http.StatusInternalServerError)
 		return
 	}
-	defer dst.Close()
 
 	// 复制文件内容
-	fileSize, err := io.Copy(dst, file)
+	fileSize, err := io.Copy(dst, io.LimitReader(file, maxFileUploadBytes+1))
 	if err != nil {
+		_ = dst.Close()
+		os.Remove(filePath)
+		http.Error(w, "保存文件失败", http.StatusInternalServerError)
+		return
+	}
+	if fileSize > maxFileUploadBytes {
+		_ = dst.Close()
+		os.Remove(filePath)
+		http.Error(w, "文件不能超过10MB", http.StatusRequestEntityTooLarge)
+		return
+	}
+	if err := dst.Close(); err != nil {
 		os.Remove(filePath)
 		http.Error(w, "保存文件失败", http.StatusInternalServerError)
 		return
@@ -98,11 +116,11 @@ func FileUploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 保存到数据库
 	fileTransfer := &models.FileTransfer{
-		UserID:   userID,
-		FileName: handler.Filename,
-		FilePath: filePath,
-		FileSize: fileSize,
-		FileType: fileType,
+		UserID:    userID,
+		FileName:  originalName,
+		FilePath:  filePath,
+		FileSize:  fileSize,
+		FileType:  fileType,
 		CreatedAt: utils.NowUTCString(), // 存储 UTC 时间
 	}
 
@@ -387,11 +405,11 @@ func SaveClipboardHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 保存到数据库
 	fileTransfer := &models.FileTransfer{
-		UserID:   userID,
-		FileName: fileName,
-		FilePath: filePath,
-		FileSize: fileInfo.Size(),
-		FileType: "txt",
+		UserID:    userID,
+		FileName:  fileName,
+		FilePath:  filePath,
+		FileSize:  fileInfo.Size(),
+		FileType:  "txt",
 		CreatedAt: utils.NowUTCString(), // 存储 UTC 时间
 	}
 
@@ -411,4 +429,3 @@ func SaveClipboardHandler(w http.ResponseWriter, r *http.Request) {
 		Data:    *fileTransfer,
 	})
 }
-

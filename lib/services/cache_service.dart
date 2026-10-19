@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
@@ -16,6 +17,7 @@ class CacheService {
 
   // 歌词内存缓存（快速访问）
   final Map<int, String> _lyricsMemoryCache = {};
+  final Map<int, Future<String?>> _musicDownloads = {};
 
   /// 初始化缓存目录
   Future<void> init() async {
@@ -56,10 +58,10 @@ class CacheService {
   /// 检查音乐是否已缓存
   Future<bool> isMusicCached(int musicId) async {
     if (kIsWeb || _musicCacheDir == null) return false;
-    
+
     try {
       final file = File(_getMusicCachePath(musicId));
-      final exists = await file.exists();
+      final exists = await file.exists() && await file.length() > 0;
       if (exists) {
         debugPrint('📦 音乐已缓存: $musicId');
       }
@@ -73,7 +75,7 @@ class CacheService {
   /// 获取缓存的音乐文件路径（用于播放）
   Future<String?> getCachedMusicPath(int musicId) async {
     if (kIsWeb || _musicCacheDir == null) return null;
-    
+
     try {
       if (await isMusicCached(musicId)) {
         final filePath = _getMusicCachePath(musicId);
@@ -90,6 +92,21 @@ class CacheService {
 
   /// 下载并缓存音乐文件
   Future<String?> cacheMusic(int musicId, String streamUrl) async {
+    final existing = _musicDownloads[musicId];
+    if (existing != null) return existing;
+
+    final download = _cacheMusic(musicId, streamUrl);
+    _musicDownloads[musicId] = download;
+    try {
+      return await download;
+    } finally {
+      if (identical(_musicDownloads[musicId], download)) {
+        _musicDownloads.remove(musicId);
+      }
+    }
+  }
+
+  Future<String?> _cacheMusic(int musicId, String streamUrl) async {
     if (kIsWeb || _musicCacheDir == null) {
       debugPrint('📦 Web平台不支持音乐缓存，直接使用流URL');
       return streamUrl;
@@ -106,18 +123,30 @@ class CacheService {
       }
 
       debugPrint('📦 开始下载音乐到缓存: $musicId');
-      final response = await http.get(Uri.parse(streamUrl));
-      
-      if (response.statusCode == 200) {
-        final file = File(_getMusicCachePath(musicId));
-        await file.writeAsBytes(response.bodyBytes);
-        debugPrint('✅ 音乐缓存成功: $musicId (${response.bodyBytes.length} bytes)');
+      final file = File(_getMusicCachePath(musicId));
+      final temporaryFile = File('${file.path}.part');
+      if (await temporaryFile.exists()) await temporaryFile.delete();
+      final client = http.Client();
+      try {
+        final request = http.Request('GET', Uri.parse(streamUrl));
+        final response = await client
+            .send(request)
+            .timeout(const Duration(seconds: 20));
+        if (response.statusCode != 200) {
+          debugPrint('❌ 下载音乐失败: ${response.statusCode}');
+          return streamUrl;
+        }
+        final sink = temporaryFile.openWrite();
+        await response.stream.timeout(const Duration(seconds: 30)).pipe(sink);
+        if (await file.exists()) await file.delete();
+        await temporaryFile.rename(file.path);
+        debugPrint('✅ 音乐缓存成功: $musicId (${await file.length()} bytes)');
         // 转换为 file:// URI 格式（Windows 平台需要）
         final uri = Uri.file(file.path).toString();
         return uri;
-      } else {
-        debugPrint('❌ 下载音乐失败: ${response.statusCode}');
-        return streamUrl; // 返回原始URL
+      } finally {
+        client.close();
+        if (await temporaryFile.exists()) await temporaryFile.delete();
       }
     } catch (e) {
       debugPrint('❌ 缓存音乐失败: $e');

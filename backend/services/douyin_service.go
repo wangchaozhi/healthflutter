@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,22 +18,37 @@ import (
 
 // 提取URL
 func ExtractURL(text string) (string, error) {
-	urlRegex := regexp.MustCompile(`(https?://[\w./?=&%-]+)`)
-	matches := urlRegex.FindStringSubmatch(text)
-	if len(matches) == 0 {
+	urlRegex := regexp.MustCompile(`https?://[^\s<>"']+`)
+	rawURL := strings.TrimRight(urlRegex.FindString(text), ".,;:!?，。；：！？)]}")
+	if rawURL == "" {
 		return "", fmt.Errorf("未解析到正确链接")
 	}
-	return matches[0], nil
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return "", fmt.Errorf("链接格式无效")
+	}
+	host := strings.ToLower(parsed.Hostname())
+	if host != "douyin.com" && !strings.HasSuffix(host, ".douyin.com") &&
+		host != "iesdouyin.com" && !strings.HasSuffix(host, ".iesdouyin.com") {
+		return "", fmt.Errorf("仅支持抖音链接")
+	}
+	return parsed.String(), nil
 }
 
 // Linux解析
 func LinuxParsing(url string) (*models.DouyinParsingResponse, error) {
-	// 构建f2命令
-	f2Cmd := fmt.Sprintf("f2 dy -M one -u %s -n {nickname}_{create}", url)
-	// 使用conda run命令，在douyi_download环境中执行
-	cmdStr := fmt.Sprintf("/root/miniconda3/bin/conda run -n douyi_download %s", f2Cmd)
-	cmd := exec.Command("/bin/bash", "-c", cmdStr)
+	return runParsingCommand(newLinuxParsingCommand(url), url)
+}
 
+func newLinuxParsingCommand(url string) *exec.Cmd {
+	return exec.Command(
+		"/root/miniconda3/bin/conda",
+		"run", "-n", "douyi_download",
+		"f2", "dy", "-M", "one", "-u", url, "-n", "{nickname}_{create}",
+	)
+}
+
+func runParsingCommand(cmd *exec.Cmd, sourceURL string) (*models.DouyinParsingResponse, error) {
 	// 清除代理环境变量
 	cmd.Env = os.Environ()
 	newEnv := []string{}
@@ -55,7 +71,7 @@ func LinuxParsing(url string) (*models.DouyinParsingResponse, error) {
 		return &models.DouyinParsingResponse{
 			Success: true,
 			Message: "解析成功",
-			Data:    url,
+			Data:    sourceURL,
 		}, nil
 	}
 
@@ -72,49 +88,15 @@ func LinuxParsing(url string) (*models.DouyinParsingResponse, error) {
 
 // Windows解析
 func WindowsParsing(url string) (*models.DouyinParsingResponse, error) {
-	// 直接使用conda命令，假设conda已在PATH中
-	// 构建f2命令，注意引号的处理：在Windows cmd中，外层用单引号或不用引号，内层用双引号
-	f2Cmd := fmt.Sprintf(`f2 dy -M one -u %s -n {nickname}_{create}`, url)
+	return runParsingCommand(newWindowsParsingCommand(url), url)
+}
 
-	// 使用conda run命令，这是更现代和可靠的方式
-	cmdStr := fmt.Sprintf(`conda run -n douyi_download %s`, f2Cmd)
-	cmd := exec.Command("cmd.exe", "/c", cmdStr)
-
-	// 清除代理环境变量
-	cmd.Env = os.Environ()
-	newEnv := []string{}
-	for _, env := range cmd.Env {
-		if !strings.HasPrefix(env, "http_proxy=") &&
-			!strings.HasPrefix(env, "https_proxy=") &&
-			!strings.HasPrefix(env, "HTTP_PROXY=") &&
-			!strings.HasPrefix(env, "HTTPS_PROXY=") {
-			newEnv = append(newEnv, env)
-		}
-	}
-	newEnv = append(newEnv, "PYTHONIOENCODING=utf-8")
-	cmd.Env = newEnv
-
-	output, err := cmd.CombinedOutput()
-	outputStr := string(output)
-
-	// 即使退出码不是0，只要输出中包含"当前任务处理完成"就认为成功
-	if strings.Contains(outputStr, "当前任务处理完成") {
-		return &models.DouyinParsingResponse{
-			Success: true,
-			Message: "解析成功",
-			Data:    url,
-		}, nil
-	}
-
-	// 如果输出中没有成功标识，返回错误
-	if err != nil {
-		return nil, fmt.Errorf("执行命令失败: %v, 输出: %s", err, outputStr)
-	}
-
-	return &models.DouyinParsingResponse{
-		Success: false,
-		Message: "执行命令失败，未找到完成标识",
-	}, nil
+func newWindowsParsingCommand(url string) *exec.Cmd {
+	return exec.Command(
+		"conda",
+		"run", "-n", "douyi_download",
+		"f2", "dy", "-M", "one", "-u", url, "-n", "{nickname}_{create}",
+	)
 }
 
 // 解析抖音链接

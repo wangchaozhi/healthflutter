@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 	"time"
-	
+
 	"backend/models"
 	"backend/utils"
 )
@@ -234,14 +234,19 @@ func GetUserLyrics(userID int) ([]models.Lyrics, error) {
 
 // BindLyricsToMusic 将歌词绑定到音乐（使用关联表，每首歌只能绑定一个歌词，但多首歌可以绑定同一个歌词）
 func BindLyricsToMusic(lyricsID, musicID, userID int) error {
-	// 检查歌词是否属于当前用户
-	var ownerID int
-	err := DB.QueryRow("SELECT user_id FROM lyrics WHERE id = ?", lyricsID).Scan(&ownerID)
+	// 歌词和音乐都必须属于当前用户，避免跨用户绑定。
+	var count int
+	err := DB.QueryRow(
+		`SELECT COUNT(*)
+		FROM lyrics l
+		JOIN music m ON m.id = ?
+		WHERE l.id = ? AND l.user_id = ? AND m.user_id = ?`,
+		musicID, lyricsID, userID, userID,
+	).Scan(&count)
 	if err != nil {
 		return err
 	}
-
-	if ownerID != userID {
+	if count != 1 {
 		return sql.ErrNoRows
 	}
 
@@ -268,8 +273,15 @@ func BindLyricsToMusic(lyricsID, musicID, userID int) error {
 	return tx.Commit()
 }
 
-// UnbindLyricsFromMusic 解除歌词与音乐的绑定
-func UnbindLyricsFromMusic(musicID int) error {
+// UnbindLyricsFromMusic 仅解除当前用户所拥有音乐的歌词绑定。
+func UnbindLyricsFromMusic(musicID, userID int) error {
+	var ownedMusicID int
+	if err := DB.QueryRow(
+		"SELECT id FROM music WHERE id = ? AND user_id = ?",
+		musicID, userID,
+	).Scan(&ownedMusicID); err != nil {
+		return err
+	}
 	_, err := DB.Exec("DELETE FROM music_lyrics_binding WHERE music_id = ?", musicID)
 	return err
 }

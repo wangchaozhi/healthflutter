@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+
 import '../models/activity.dart';
 import '../models/activity_stats.dart';
 import 'activity_repository.dart';
@@ -12,19 +13,24 @@ class ActivityStore extends ChangeNotifier {
   List<Activity> _activities = const [];
   ActivityStats? _stats;
   bool _isLoading = false;
-  String? _lastError;
+  String? _listError;
+  String? _statsError;
+  int _refreshGeneration = 0;
 
   List<Activity> get activities => _activities;
   ActivityStats? get stats => _stats;
   bool get isLoading => _isLoading;
-  String? get lastError => _lastError;
+  String? get lastError => _listError ?? _statsError;
 
   Future<void> refresh() async {
+    final generation = ++_refreshGeneration;
     _isLoading = true;
     notifyListeners();
-    await Future.wait([_loadList(), _loadStats()]);
-    _isLoading = false;
-    notifyListeners();
+    await Future.wait([_loadList(generation), _loadStats(generation)]);
+    if (generation == _refreshGeneration) {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<String?> create({
@@ -42,8 +48,7 @@ class ActivityStore extends ChangeNotifier {
       tag: tag,
     );
     if (result.isOk) {
-      await Future.wait([_loadList(), _loadStats()]);
-      notifyListeners();
+      await refresh();
       return null;
     }
     return result.message.isEmpty ? '记录失败' : result.message;
@@ -52,38 +57,41 @@ class ActivityStore extends ChangeNotifier {
   Future<String?> delete(int id) async {
     final result = await _repo.delete(id);
     if (result.isOk) {
-      await Future.wait([_loadList(), _loadStats()]);
-      notifyListeners();
+      await refresh();
       return null;
     }
     return result.message.isEmpty ? '删除失败' : result.message;
   }
 
-  Future<void> _loadList() async {
+  Future<void> _loadList(int generation) async {
     final result = await _repo.list();
+    if (generation != _refreshGeneration) return;
     if (result.isOk) {
       _activities = result.data ?? const [];
-      _lastError = null;
+      _listError = null;
     } else {
-      _lastError = result.message;
+      _listError = result.message;
     }
   }
 
-  Future<void> _loadStats() async {
+  Future<void> _loadStats(int generation) async {
     final result = await _repo.stats();
+    if (generation != _refreshGeneration) return;
     if (result.isOk) {
       _stats = result.data;
-      _lastError = null;
+      _statsError = null;
     } else {
-      _lastError = result.message;
+      _statsError = result.message;
     }
   }
 
   void clear() {
+    _refreshGeneration++;
     _activities = const [];
     _stats = null;
     _isLoading = false;
-    _lastError = null;
+    _listError = null;
+    _statsError = null;
     notifyListeners();
   }
 }

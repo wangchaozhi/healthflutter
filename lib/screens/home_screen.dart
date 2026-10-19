@@ -1,6 +1,6 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../models/activity.dart';
 import '../services/activity_store.dart';
 import '../services/auth_repository.dart';
@@ -26,9 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
       Theme.of(context).extension<AppThemeColors>() ?? AppThemes.tealColors;
 
   final ActivityStore _store = ActivityStore.instance;
-  Timer? _clockTimer;
   bool _isRecordFormVisible = false;
-  String _currentDateTime = '';
 
   // 防抖相关
   final DebounceState _submitDebounce = DebounceState();
@@ -38,17 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _updateDateTime();
-    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) _updateDateTime();
-    });
     _store.refresh();
-  }
-
-  void _updateDateTime() {
-    setState(() {
-      _currentDateTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
-    });
   }
 
   Future<void> _refresh() => _store.refresh();
@@ -85,14 +73,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
         if (!mounted) return;
         if (error == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('记录成功')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('记录成功')));
           _closeForm();
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(error)),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(error)));
         }
       },
       onStart: () {
@@ -109,9 +95,8 @@ class _HomeScreenState extends State<HomeScreen> {
       action: () async {
         final error = await _store.delete(id);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error ?? '删除成功')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error ?? '删除成功')));
       },
       onStart: () {
         if (mounted) setState(() {});
@@ -128,11 +113,11 @@ class _HomeScreenState extends State<HomeScreen> {
         // 停止并重置播放器
         final playerService = MusicPlayerService();
         await playerService.stopAndReset();
-        
+
         // 退出登录
         await AuthRepository.instance.logout();
         _store.clear();
-        
+
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -147,7 +132,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    _clockTimer?.cancel();
     _submitDebounce.dispose();
     _deleteDebounce.dispose();
     _logoutDebounce.dispose();
@@ -173,7 +157,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Icon(Icons.palette_rounded, color: _colors.primary),
                   const SizedBox(width: 10),
-                  Text('选择主题', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: _colors.textPrimary)),
+                  Text(
+                    '选择主题',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: _colors.textPrimary,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 20),
@@ -191,12 +182,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                         decoration: BoxDecoration(
-                          color: isSelected ? colors.primary.withValues(alpha: 0.12) : _colors.surfaceLight,
+                          color: isSelected
+                              ? colors.primary.withValues(alpha: 0.12)
+                              : _colors.surfaceLight,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: isSelected ? colors.primary : Colors.transparent,
+                            color: isSelected
+                                ? colors.primary
+                                : Colors.transparent,
                             width: 2,
                           ),
                         ),
@@ -211,10 +209,23 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             const SizedBox(width: 14),
-                            Text(id.label, style: TextStyle(fontSize: 16, fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500, color: _colors.textPrimary)),
+                            Text(
+                              id.label,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                                color: _colors.textPrimary,
+                              ),
+                            ),
                             if (isSelected) ...[
                               const Spacer(),
-                              Icon(Icons.check_circle_rounded, color: colors.primary, size: 22),
+                              Icon(
+                                Icons.check_circle_rounded,
+                                color: colors.primary,
+                                size: 22,
+                              ),
                             ],
                           ],
                         ),
@@ -230,7 +241,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildAppBarBtn(IconData icon, String tooltip, VoidCallback onPressed) {
+  Widget _buildAppBarBtn(
+    IconData icon,
+    String tooltip,
+    VoidCallback onPressed,
+  ) {
     return IconButton(
       icon: Icon(icon, color: _colors.textSecondary),
       onPressed: onPressed,
@@ -251,7 +266,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: _colors.primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(Icons.favorite_rounded, color: _colors.primary, size: 24),
+              child: Icon(
+                Icons.favorite_rounded,
+                color: _colors.primary,
+                size: 24,
+              ),
             ),
             const SizedBox(width: 12),
             Text(
@@ -269,9 +288,21 @@ class _HomeScreenState extends State<HomeScreen> {
         surfaceTintColor: Colors.transparent,
         actions: [
           _buildAppBarBtn(Icons.palette_outlined, '主题', _showThemePicker),
-          _buildAppBarBtn(Icons.construction, '工具', () => Navigator.of(context).pushNamed('/tools_menu')),
-          _buildAppBarBtn(Icons.public, 'WebView', () => Navigator.of(context).pushNamed('/webview_menu')),
-          _buildAppBarBtn(Icons.music_note, '音乐', () => Navigator.of(context).pushNamed('/music_player')),
+          _buildAppBarBtn(
+            Icons.construction,
+            '工具',
+            () => Navigator.of(context).pushNamed('/tools_menu'),
+          ),
+          _buildAppBarBtn(
+            Icons.public,
+            'WebView',
+            () => Navigator.of(context).pushNamed('/webview_menu'),
+          ),
+          _buildAppBarBtn(
+            Icons.music_note,
+            '音乐',
+            () => Navigator.of(context).pushNamed('/music_player'),
+          ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),
             onPressed: _logoutDebounce.canExecute ? _handleLogout : null,
@@ -282,36 +313,46 @@ class _HomeScreenState extends State<HomeScreen> {
       body: ListenableBuilder(
         listenable: _store,
         builder: (context, _) {
-          if (_store.isLoading && _store.activities.isEmpty && _store.stats == null) {
+          if (_store.isLoading &&
+              _store.activities.isEmpty &&
+              _store.stats == null) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   CircularProgressIndicator(color: _colors.primary),
                   const SizedBox(height: 16),
-                  Text('加载中...', style: TextStyle(color: _colors.textSecondary, fontSize: 14)),
+                  Text(
+                    '加载中...',
+                    style: TextStyle(
+                      color: _colors.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
                 ],
               ),
             );
           }
           return LayoutBuilder(
-              builder: (context, constraints) {
-                // 桌面端限制最大宽度为1200px
-                final maxWidth = constraints.maxWidth > 1200 ? 1200.0 : constraints.maxWidth;
-                return Stack(
-                  children: [
-                    Center(
-                      child: RefreshIndicator(
-                        onRefresh: _refresh,
-                        child: SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(16.0),
-                          child: ConstrainedBox(
+            builder: (context, constraints) {
+              // 桌面端限制最大宽度为1200px
+              final maxWidth = constraints.maxWidth > 1200
+                  ? 1200.0
+                  : constraints.maxWidth;
+              return Stack(
+                children: [
+                  Center(
+                    child: RefreshIndicator(
+                      onRefresh: _refresh,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(16.0),
+                        child: ConstrainedBox(
                           constraints: BoxConstraints(maxWidth: maxWidth),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              DateTimeBanner(text: _currentDateTime, colors: _colors),
+                              DateTimeBanner(colors: _colors),
                               const SizedBox(height: 24),
                               StatsCard(
                                 stats: _store.stats,
@@ -330,18 +371,18 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
+                  ),
+                  if (_isRecordFormVisible)
+                    RecordFormSheet(
+                      colors: _colors,
+                      submitting: !_submitDebounce.canExecute,
+                      onClose: _closeForm,
+                      onSubmit: _handleFormSubmit,
                     ),
-                    if (_isRecordFormVisible)
-                      RecordFormSheet(
-                        colors: _colors,
-                        submitting: !_submitDebounce.canExecute,
-                        onClose: _closeForm,
-                        onSubmit: _handleFormSubmit,
-                      ),
-                  ],
-                );
-              },
-            );
+                ],
+              );
+            },
+          );
         },
       ),
     );

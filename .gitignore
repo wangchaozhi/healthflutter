@@ -93,6 +93,7 @@ backend/uploads/
 # Environment variables
 .env
 .env.local
+.jwt_secret
 
 # Test related
 .test_coverage/

@@ -99,11 +99,19 @@ func SaveFileTransfer(file *models.FileTransfer) error {
 		createdAt = utils.NowUTCString()
 	}
 
-	_, err := DB.Exec(
+	result, err := DB.Exec(
 		"INSERT INTO file_transfers (user_id, file_name, file_path, file_size, file_type, created_at) VALUES (?, ?, ?, ?, ?, ?)",
 		file.UserID, file.FileName, file.FilePath, file.FileSize, file.FileType, createdAt,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+	file.ID = int(id)
+	return nil
 }
 
 // GetUserFileTransfers 获取用户的文件列表（分页）

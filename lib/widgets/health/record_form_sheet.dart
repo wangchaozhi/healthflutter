@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../models/activity.dart';
 import '../../themes/app_themes.dart';
 
@@ -35,7 +36,9 @@ class _RecordFormSheetState extends State<RecordFormSheet> {
   int _duration = 1;
   String _remark = '';
   ActivityTag _tag = ActivityTag.manual;
-  final TextEditingController _durationController = TextEditingController(text: '1');
+  final TextEditingController _durationController = TextEditingController(
+    text: '1',
+  );
   final TextEditingController _remarkController = TextEditingController();
 
   @override
@@ -71,9 +74,8 @@ class _RecordFormSheetState extends State<RecordFormSheet> {
 
   Future<void> _submit() async {
     if (_duration <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入持续时间')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请输入持续时间')));
       return;
     }
     await widget.onSubmit(
@@ -94,7 +96,9 @@ class _RecordFormSheetState extends State<RecordFormSheet> {
       child: Center(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final maxWidth = constraints.maxWidth > 600 ? 600.0 : constraints.maxWidth;
+            final maxWidth = constraints.maxWidth > 600
+                ? 600.0
+                : constraints.maxWidth;
             return Container(
               margin: const EdgeInsets.all(24),
               padding: const EdgeInsets.all(28),
@@ -118,9 +122,20 @@ class _RecordFormSheetState extends State<RecordFormSheet> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.edit_calendar_rounded, color: colors.primary, size: 26),
+                        Icon(
+                          Icons.edit_calendar_rounded,
+                          color: colors.primary,
+                          size: 26,
+                        ),
                         const SizedBox(width: 10),
-                        Text('记录健康活动', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: colors.textPrimary)),
+                        Text(
+                          '记录健康活动',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: colors.textPrimary,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -136,22 +151,27 @@ class _RecordFormSheetState extends State<RecordFormSheet> {
                       colors: colors,
                       icon: Icons.access_time_rounded,
                       label: '记录时间',
-                      value: '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
+                      value:
+                          '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
                       onTap: _pickTime,
                     ),
                     const SizedBox(height: 16),
-                    TextField(
-                      controller: TextEditingController(text: _getWeekDay(_date)),
+                    InputDecorator(
                       decoration: InputDecoration(
                         labelText: '星期几',
                         filled: true,
                         fillColor: colors.surfaceLight,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
+                          borderSide: BorderSide(
+                            color: Colors.black.withValues(alpha: 0.1),
+                          ),
                         ),
                       ),
-                      enabled: false,
+                      child: Text(
+                        _getWeekDay(_date),
+                        style: TextStyle(color: colors.textPrimary),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -163,15 +183,21 @@ class _RecordFormSheetState extends State<RecordFormSheet> {
                         fillColor: colors.surfaceLight,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
+                          borderSide: BorderSide(
+                            color: Colors.black.withValues(alpha: 0.1),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: colors.primary, width: 2),
+                          borderSide: BorderSide(
+                            color: colors.primary,
+                            width: 2,
+                          ),
                         ),
                       ),
                       keyboardType: TextInputType.number,
-                      onChanged: (v) => setState(() => _duration = int.tryParse(v) ?? 0),
+                      onChanged: (v) =>
+                          setState(() => _duration = int.tryParse(v) ?? 0),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -182,14 +208,16 @@ class _RecordFormSheetState extends State<RecordFormSheet> {
                           label: '手动',
                           selected: _tag == ActivityTag.manual,
                           accent: colors.accentOrange,
-                          onSelected: () => setState(() => _tag = ActivityTag.manual),
+                          onSelected: () =>
+                              setState(() => _tag = ActivityTag.manual),
                         ),
                         const SizedBox(width: 12),
                         _TagChip(
                           label: '自动',
                           selected: _tag == ActivityTag.auto,
                           accent: colors.accentBlue,
-                          onSelected: () => setState(() => _tag = ActivityTag.auto),
+                          onSelected: () =>
+                              setState(() => _tag = ActivityTag.auto),
                         ),
                       ],
                     ),
@@ -202,11 +230,16 @@ class _RecordFormSheetState extends State<RecordFormSheet> {
                         fillColor: colors.surfaceLight,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
+                          borderSide: BorderSide(
+                            color: Colors.black.withValues(alpha: 0.1),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: colors.primary, width: 2),
+                          borderSide: BorderSide(
+                            color: colors.primary,
+                            width: 2,
+                          ),
                         ),
                       ),
                       onChanged: (v) => _remark = v,
@@ -219,10 +252,19 @@ class _RecordFormSheetState extends State<RecordFormSheet> {
                             onPressed: widget.onClose,
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              side: BorderSide(color: colors.textSecondary.withValues(alpha: 0.4)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              side: BorderSide(
+                                color: colors.textSecondary.withValues(
+                                  alpha: 0.4,
+                                ),
+                              ),
                             ),
-                            child: Text('取消', style: TextStyle(color: colors.textSecondary)),
+                            child: Text(
+                              '取消',
+                              style: TextStyle(color: colors.textSecondary),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -233,7 +275,9 @@ class _RecordFormSheetState extends State<RecordFormSheet> {
                               backgroundColor: colors.primary,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                             child: widget.submitting
                                 ? const SizedBox(
@@ -241,10 +285,17 @@ class _RecordFormSheetState extends State<RecordFormSheet> {
                                     height: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
                                     ),
                                   )
-                                : const Text('确定', style: TextStyle(fontWeight: FontWeight.w600)),
+                                : const Text(
+                                    '确定',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                           ),
                         ),
                       ],
@@ -291,9 +342,18 @@ class _RowField extends StatelessWidget {
           children: [
             Icon(icon, size: 22, color: colors.primary),
             const SizedBox(width: 12),
-            Text(label, style: TextStyle(color: colors.textSecondary, fontSize: 14)),
+            Text(
+              label,
+              style: TextStyle(color: colors.textSecondary, fontSize: 14),
+            ),
             const Spacer(),
-            Text(value, style: TextStyle(fontWeight: FontWeight.w600, color: colors.textPrimary)),
+            Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: colors.textPrimary,
+              ),
+            ),
             const SizedBox(width: 4),
             Icon(Icons.chevron_right, color: colors.textSecondary, size: 20),
           ],
@@ -326,7 +386,9 @@ class _TagChip extends StatelessWidget {
         color: accent,
         fontWeight: selected ? FontWeight.w600 : null,
       ),
-      side: BorderSide(color: selected ? accent : accent.withValues(alpha: 0.45)),
+      side: BorderSide(
+        color: selected ? accent : accent.withValues(alpha: 0.45),
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       onSelected: (s) {
         if (s) onSelected();

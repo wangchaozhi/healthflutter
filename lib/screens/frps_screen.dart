@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+
 import '../config/api_config.dart';
 import '../utils/platform_utils.dart';
 import '../utils/webview_file_selector.dart';
+
 import 'package:webview_flutter/webview_flutter.dart';
 
 class FrpsScreen extends StatefulWidget {
@@ -22,6 +24,11 @@ class _FrpsScreenState extends State<FrpsScreen> {
   @override
   void initState() {
     super.initState();
+    if (kIsWeb || isDesktop) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openInBrowser(_frpsUrl);
+      });
+    }
   }
 
   String get _frpsUrl {
@@ -42,9 +49,8 @@ class _FrpsScreenState extends State<FrpsScreen> {
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('无法打开浏览器: $url')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('无法打开浏览器: $url')));
       }
     }
   }
@@ -53,9 +59,6 @@ class _FrpsScreenState extends State<FrpsScreen> {
   Widget build(BuildContext context) {
     // Web 平台和桌面平台使用外部浏览器（webview_flutter 不支持 Windows/Linux）
     if (kIsWeb || isDesktop) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _openInBrowser(_frpsUrl);
-      });
       return Scaffold(
         appBar: AppBar(title: const Text('FRPS 管理')),
         body: const Center(
@@ -78,6 +81,7 @@ class _FrpsScreenState extends State<FrpsScreen> {
         ..setNavigationDelegate(
           NavigationDelegate(
             onPageStarted: (String url) {
+              if (!mounted) return;
               setState(() {
                 _isLoading = true;
                 _errorMessage = null;
@@ -85,16 +89,19 @@ class _FrpsScreenState extends State<FrpsScreen> {
               });
             },
             onPageFinished: (String url) {
+              if (!mounted) return;
               setState(() {
                 _isLoading = false;
               });
             },
             onProgress: (int progress) {
+              if (!mounted) return;
               setState(() {
                 _loadingProgress = progress;
               });
             },
             onWebResourceError: (WebResourceError error) {
+              if (!mounted) return;
               setState(() {
                 _isLoading = false;
                 _errorMessage = '加载失败: ${error.description}';

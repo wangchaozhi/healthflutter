@@ -1,9 +1,11 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:system_tray/system_tray.dart';
 import 'package:window_manager/window_manager.dart';
+
 import 'single_instance_service.dart';
 
 class TrayService extends WindowListener {
@@ -35,29 +37,26 @@ class TrayService extends WindowListener {
 
       // 设置阻止窗口关闭，由我们自定义处理
       await windowManager.setPreventClose(true);
-      
+
       // 添加窗口监听器
       windowManager.addListener(this);
 
       // 初始化系统托盘
       _systemTray = SystemTray();
-      
+
       // 尝试初始化托盘，如果图标不存在则使用空字符串
       String? iconPath = await _getIconPath();
       bool trayInitialized = false;
-      
+
       if (iconPath != null && iconPath.isNotEmpty) {
         try {
-          await _systemTray!.initSystemTray(
-            title: "健康管理",
-            iconPath: iconPath,
-          );
+          await _systemTray!.initSystemTray(title: "健康管理", iconPath: iconPath);
           trayInitialized = true;
         } catch (e) {
           debugPrint('使用自定义图标失败: $e');
         }
       }
-      
+
       // 如果使用自定义图标失败，尝试使用应用图标
       if (!trayInitialized) {
         try {
@@ -71,10 +70,7 @@ class TrayService extends WindowListener {
             trayInitialized = true;
           } else {
             // 如果无法获取应用图标，尝试空字符串
-            await _systemTray!.initSystemTray(
-              title: "健康管理",
-              iconPath: "",
-            );
+            await _systemTray!.initSystemTray(title: "健康管理", iconPath: "");
             trayInitialized = true;
           }
         } catch (e) {
@@ -93,10 +89,7 @@ class TrayService extends WindowListener {
             onClicked: (menuItem) => _toggleWindow(),
           ),
           MenuSeparator(),
-          MenuItemLabel(
-            label: '退出',
-            onClicked: (menuItem) => _exitApp(),
-          ),
+          MenuItemLabel(label: '退出', onClicked: (menuItem) => _exitApp()),
         ]);
 
         // 设置托盘菜单
@@ -134,7 +127,7 @@ class TrayService extends WindowListener {
       // 确定图标文件名
       String iconFileName;
       String assetPath;
-      
+
       if (Platform.isWindows) {
         iconFileName = 'tray_icon.ico';
         assetPath = 'assets/icons/tray_icon.ico';
@@ -142,7 +135,7 @@ class TrayService extends WindowListener {
         iconFileName = 'tray_icon.png';
         assetPath = 'assets/icons/tray_icon.png';
       }
-      
+
       // 尝试从 assets 加载图标
       try {
         final ByteData data = await rootBundle.load(assetPath);
@@ -183,7 +176,7 @@ class TrayService extends WindowListener {
     try {
       // 清理单实例资源
       await SingleInstanceService().dispose();
-      
+
       if (_systemTray != null) {
         await _systemTray!.destroy();
       }

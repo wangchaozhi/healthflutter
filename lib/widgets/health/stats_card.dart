@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../models/activity_stats.dart';
 import '../../themes/app_themes.dart';
 
@@ -36,12 +37,20 @@ class StatsCard extends StatelessWidget {
         children: [
           TextSpan(
             text: number,
-            style: TextStyle(fontSize: numberSize, fontWeight: fontWeight, color: numberColor),
+            style: TextStyle(
+              fontSize: numberSize,
+              fontWeight: fontWeight,
+              color: numberColor,
+            ),
           ),
           if (unit != null && unit.isNotEmpty)
             TextSpan(
               text: unit,
-              style: TextStyle(fontSize: unitSize, fontWeight: fontWeight, color: numberColor),
+              style: TextStyle(
+                fontSize: unitSize,
+                fontWeight: fontWeight,
+                color: numberColor,
+              ),
             ),
         ],
       ),
@@ -49,7 +58,12 @@ class StatsCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStatChip(String label, String value, Color accent, IconData icon) {
+  Widget _buildStatChip(
+    String label,
+    String value,
+    Color accent,
+    IconData icon,
+  ) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -59,8 +73,17 @@ class StatsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: TextStyle(fontSize: 13, color: colors.textSecondary)),
-            _buildNumberWithUnit(value, unit: ' 次', numberColor: accent, numberSize: 22, unitSize: 20),
+            Text(
+              label,
+              style: TextStyle(fontSize: 13, color: colors.textSecondary),
+            ),
+            _buildNumberWithUnit(
+              value,
+              unit: ' 次',
+              numberColor: accent,
+              numberSize: 22,
+              unitSize: 20,
+            ),
           ],
         ),
       ],
@@ -74,9 +97,22 @@ class StatsCard extends StatelessWidget {
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     final s = stats;
-    final lastTwo = _formatStat(s?.lastIntervalDays ?? (s != null && s.lastTwoInterval >= 0 ? s.lastTwoInterval : null));
-    final lastTwoAuto = _formatStat(s?.lastAutoIntervalDays ?? (s != null && s.lastTwoAutoInterval >= 0 ? s.lastTwoAutoInterval : null));
-    final lastTwoManual = _formatStat(s?.lastManualIntervalDays ?? (s != null && s.lastTwoManualInterval >= 0 ? s.lastTwoManualInterval : null));
+    final lastTwo = _formatStat(
+      s?.lastIntervalDays ??
+          (s != null && s.lastTwoInterval >= 0 ? s.lastTwoInterval : null),
+    );
+    final lastTwoAuto = _formatStat(
+      s?.lastAutoIntervalDays ??
+          (s != null && s.lastTwoAutoInterval >= 0
+              ? s.lastTwoAutoInterval
+              : null),
+    );
+    final lastTwoManual = _formatStat(
+      s?.lastManualIntervalDays ??
+          (s != null && s.lastTwoManualInterval >= 0
+              ? s.lastTwoManualInterval
+              : null),
+    );
     final lastToNow = _formatStat(s?.lastToNowDays);
 
     final isNarrow = MediaQuery.of(context).size.width < 400;
@@ -90,7 +126,10 @@ class StatsCard extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(label, style: TextStyle(fontSize: 14, color: colors.textSecondary)),
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: 14, color: colors.textSecondary),
+                  ),
                   _buildNumberWithUnit(
                     value,
                     unit: isNa ? null : ' 天',
@@ -110,7 +149,10 @@ class StatsCard extends StatelessWidget {
                   numberSize: 20,
                   unitSize: 20,
                 ),
-                Text(label, style: TextStyle(fontSize: 13, color: colors.textSecondary)),
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 13, color: colors.textSecondary),
+                ),
               ],
             );
     }
@@ -121,7 +163,11 @@ class StatsCard extends StatelessWidget {
         color: colors.surfaceCard,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 6)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
         ],
       ),
       child: Column(
@@ -133,7 +179,11 @@ class StatsCard extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 '健康活动记录',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: colors.textPrimary),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: colors.textPrimary,
+                ),
               ),
             ],
           ),
@@ -145,27 +195,45 @@ class StatsCard extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [colors.primary.withValues(alpha: 0.1), colors.primaryLight.withValues(alpha: 0.15)],
+                  colors: [
+                    colors.primary.withValues(alpha: 0.1),
+                    colors.primaryLight.withValues(alpha: 0.15),
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: colors.primary.withValues(alpha: 0.2), width: 1),
+                border: Border.all(
+                  color: colors.primary.withValues(alpha: 0.2),
+                  width: 1,
+                ),
               ),
               child: Text.rich(
                 TextSpan(
                   children: [
                     TextSpan(
                       text: '从 $earliest 至 $today 共计 ',
-                      style: TextStyle(fontSize: 15, color: colors.textSecondary, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: colors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     TextSpan(
                       text: '$total',
-                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: colors.primary),
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: colors.primary,
+                      ),
                     ),
                     TextSpan(
                       text: ' 次',
-                      style: TextStyle(fontSize: 15, color: colors.textSecondary, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: colors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
@@ -182,9 +250,23 @@ class StatsCard extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildStatChip('累计手动', '${stats?.totalManual ?? 0}', colors.accentOrange, Icons.touch_app),
-                Container(width: 1, height: 32, color: Colors.black.withValues(alpha: 0.06)),
-                _buildStatChip('累计自动', '${stats?.totalAuto ?? 0}', colors.accentBlue, Icons.auto_awesome),
+                _buildStatChip(
+                  '累计手动',
+                  '${stats?.totalManual ?? 0}',
+                  colors.accentOrange,
+                  Icons.touch_app,
+                ),
+                Container(
+                  width: 1,
+                  height: 32,
+                  color: Colors.black.withValues(alpha: 0.06),
+                ),
+                _buildStatChip(
+                  '累计自动',
+                  '${stats?.totalAuto ?? 0}',
+                  colors.accentBlue,
+                  Icons.auto_awesome,
+                ),
               ],
             ),
           ),
@@ -236,13 +318,25 @@ class StatsCard extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: Text('手动周期', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: colors.textSecondary)),
+                  child: Text(
+                    '手动周期',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: colors.textSecondary),
+                  ),
                 ),
                 Expanded(
-                  child: Text('自动周期', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: colors.textSecondary)),
+                  child: Text(
+                    '自动周期',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: colors.textSecondary),
+                  ),
                 ),
                 Expanded(
-                  child: Text('总周期', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: colors.textSecondary)),
+                  child: Text(
+                    '总周期',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: colors.textSecondary),
+                  ),
                 ),
               ],
             ),
@@ -256,15 +350,41 @@ class StatsCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: colors.accentOrange.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: colors.accentOrange.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: colors.accentOrange.withValues(alpha: 0.2),
+                    ),
                   ),
                   child: Column(
                     children: [
-                      _buildNumberWithUnit('${stats?.yearManual ?? 0}', unit: ' 次', numberColor: colors.accentOrange, numberSize: 24, unitSize: 20),
-                      Text('今年手动', style: TextStyle(fontSize: 13, color: colors.textSecondary)),
+                      _buildNumberWithUnit(
+                        '${stats?.yearManual ?? 0}',
+                        unit: ' 次',
+                        numberColor: colors.accentOrange,
+                        numberSize: 24,
+                        unitSize: 20,
+                      ),
+                      Text(
+                        '今年手动',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colors.textSecondary,
+                        ),
+                      ),
                       const SizedBox(height: 10),
-                      _buildNumberWithUnit('${stats?.monthManual ?? 0}', unit: ' 次', numberColor: colors.accentOrange, numberSize: 24, unitSize: 20),
-                      Text('本月手动', style: TextStyle(fontSize: 13, color: colors.textSecondary)),
+                      _buildNumberWithUnit(
+                        '${stats?.monthManual ?? 0}',
+                        unit: ' 次',
+                        numberColor: colors.accentOrange,
+                        numberSize: 24,
+                        unitSize: 20,
+                      ),
+                      Text(
+                        '本月手动',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colors.textSecondary,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -276,15 +396,41 @@ class StatsCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: colors.accentBlue.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: colors.accentBlue.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: colors.accentBlue.withValues(alpha: 0.2),
+                    ),
                   ),
                   child: Column(
                     children: [
-                      _buildNumberWithUnit('${stats?.yearAuto ?? 0}', unit: ' 次', numberColor: colors.accentBlue, numberSize: 24, unitSize: 20),
-                      Text('今年自动', style: TextStyle(fontSize: 13, color: colors.textSecondary)),
+                      _buildNumberWithUnit(
+                        '${stats?.yearAuto ?? 0}',
+                        unit: ' 次',
+                        numberColor: colors.accentBlue,
+                        numberSize: 24,
+                        unitSize: 20,
+                      ),
+                      Text(
+                        '今年自动',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colors.textSecondary,
+                        ),
+                      ),
                       const SizedBox(height: 10),
-                      _buildNumberWithUnit('${stats?.monthAuto ?? 0}', unit: ' 次', numberColor: colors.accentBlue, numberSize: 24, unitSize: 20),
-                      Text('本月自动', style: TextStyle(fontSize: 13, color: colors.textSecondary)),
+                      _buildNumberWithUnit(
+                        '${stats?.monthAuto ?? 0}',
+                        unit: ' 次',
+                        numberColor: colors.accentBlue,
+                        numberSize: 24,
+                        unitSize: 20,
+                      ),
+                      Text(
+                        '本月自动',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colors.textSecondary,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -302,25 +448,61 @@ class StatsCard extends StatelessWidget {
             child: isNarrow
                 ? Column(
                     children: [
-                      buildIntervalItem('最后一次距今', lastToNow, colors.primaryLight),
+                      buildIntervalItem(
+                        '最后一次距今',
+                        lastToNow,
+                        colors.primaryLight,
+                      ),
                       buildIntervalItem('最后两次间隔', lastTwo, colors.primary),
-                      buildIntervalItem('最后两次手动间隔', lastTwoManual, colors.accentOrange),
-                      buildIntervalItem('最后两次自动间隔', lastTwoAuto, colors.accentBlue),
+                      buildIntervalItem(
+                        '最后两次手动间隔',
+                        lastTwoManual,
+                        colors.accentOrange,
+                      ),
+                      buildIntervalItem(
+                        '最后两次自动间隔',
+                        lastTwoAuto,
+                        colors.accentBlue,
+                      ),
                     ],
                   )
                 : Column(
                     children: [
                       Row(
                         children: [
-                          Expanded(child: buildIntervalItem('最后一次距今', lastToNow, colors.primaryLight)),
-                          Expanded(child: buildIntervalItem('最后两次间隔', lastTwo, colors.primary)),
+                          Expanded(
+                            child: buildIntervalItem(
+                              '最后一次距今',
+                              lastToNow,
+                              colors.primaryLight,
+                            ),
+                          ),
+                          Expanded(
+                            child: buildIntervalItem(
+                              '最后两次间隔',
+                              lastTwo,
+                              colors.primary,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          Expanded(child: buildIntervalItem('最后两次手动间隔', lastTwoManual, colors.accentOrange)),
-                          Expanded(child: buildIntervalItem('最后两次自动间隔', lastTwoAuto, colors.accentBlue)),
+                          Expanded(
+                            child: buildIntervalItem(
+                              '最后两次手动间隔',
+                              lastTwoManual,
+                              colors.accentOrange,
+                            ),
+                          ),
+                          Expanded(
+                            child: buildIntervalItem(
+                              '最后两次自动间隔',
+                              lastTwoAuto,
+                              colors.accentBlue,
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -332,12 +514,17 @@ class StatsCard extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: onAddPressed,
               icon: const Icon(Icons.add_rounded, size: 22),
-              label: const Text('添加记录', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              label: const Text(
+                '添加记录',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
               style: FilledButton.styleFrom(
                 backgroundColor: colors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),

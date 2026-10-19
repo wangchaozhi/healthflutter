@@ -71,11 +71,7 @@ class ToolsMenuScreen extends StatelessWidget {
                         color: item.color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(
-                        item.icon,
-                        color: item.color,
-                        size: 28,
-                      ),
+                      child: Icon(item.icon, color: item.color, size: 28),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -100,10 +96,7 @@ class ToolsMenuScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Icon(
-                      Icons.chevron_right,
-                      color: Colors.grey[400],
-                    ),
+                    Icon(Icons.chevron_right, color: Colors.grey[400]),
                   ],
                 ),
               ),

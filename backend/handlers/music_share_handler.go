@@ -307,17 +307,19 @@ func ShareWebPlayerHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 准备模板数据
 	data := struct {
-		Title     string
-		Artist    string
-		Album     string
-		StreamURL string
-		MusicID   int
+		Title      string
+		Artist     string
+		Album      string
+		StreamURL  string
+		MusicID    int
+		ShareToken string
 	}{
-		Title:     music.Title,
-		Artist:    music.Artist,
-		Album:     music.Album,
-		StreamURL: "/api/music/share/stream?token=" + token,
-		MusicID:   music.ID,
+		Title:      music.Title,
+		Artist:     music.Artist,
+		Album:      music.Album,
+		StreamURL:  "/api/music/share/stream?token=" + token,
+		MusicID:    music.ID,
+		ShareToken: token,
 	}
 
 	// 解析并渲染模板（从嵌入的文件系统）

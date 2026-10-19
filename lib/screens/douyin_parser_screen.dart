@@ -1,12 +1,18 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+
 import '../models/douyin_file.dart';
 import '../services/douyin_repository.dart';
 import '../services/token_storage.dart';
 // 条件导入：仅在Web平台导入web_download
-import '../utils/web_download_stub.dart' if (dart.library.html) '../utils/web_download.dart' as web_download;
-import '../utils/native_download.dart' if (dart.library.html) '../utils/web_download_stub.dart' as native_download;
+import '../utils/web_download_stub.dart'
+    if (dart.library.html) '../utils/web_download.dart'
+    as web_download;
+import '../utils/native_download.dart'
+    if (dart.library.html) '../utils/web_download_stub.dart'
+    as native_download;
 
 class DouyinParserScreen extends StatefulWidget {
   const DouyinParserScreen({super.key});
@@ -35,9 +41,8 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
   Future<void> _handleParsing() async {
     final text = _inputController.text.trim();
     if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入抖音分享链接')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请输入抖音分享链接')));
       return;
     }
 
@@ -47,20 +52,20 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
 
     final result = await DouyinRepository.instance.parse(text);
 
+    if (!mounted) return;
     setState(() {
       _isParsing = false;
     });
 
-    if (!mounted) return;
-
     if (result.isOk) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('解析成功')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('解析成功')));
       await _loadFileList();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message.isEmpty ? '解析失败' : result.message)),
+        SnackBar(
+          content: Text(result.message.isEmpty ? '解析失败' : result.message),
+        ),
       );
     }
   }
@@ -82,55 +87,63 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
       final token = await TokenStorage.getToken();
       if (token == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('请先登录')),
-          );
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('请先登录')));
         }
         return;
       }
 
-      final downloadUrl = await DouyinRepository.instance.downloadUrl(int.parse(id));
-      
+      final downloadUrl = await DouyinRepository.instance.downloadUrl(
+        int.parse(id),
+      );
+
       if (kIsWeb) {
         // 在Web平台，直接使用fetch API下载，避免将整个文件加载到内存
         try {
-          await web_download.downloadFileWebDirect(downloadUrl, token, fileName);
+          await web_download.downloadFileWebDirect(
+            downloadUrl,
+            token,
+            fileName,
+          );
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('开始下载: $fileName')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('开始下载: $fileName')));
           }
         } catch (e) {
           debugPrint('Web下载失败: $e');
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('下载失败，请重试: $e')),
-            );
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('下载失败，请重试: $e')));
           }
         }
       } else {
         // 在移动端和桌面端，使用native下载功能
         try {
-          final filePath = await native_download.downloadFileNative(downloadUrl, token, fileName);
+          final filePath = await native_download.downloadFileNative(
+            downloadUrl,
+            token,
+            fileName,
+          );
           if (mounted) {
             // 检查是否为视频文件和是否为移动端
-            final isVideo = fileName.toLowerCase().endsWith('.mp4') ||
+            final isVideo =
+                fileName.toLowerCase().endsWith('.mp4') ||
                 fileName.toLowerCase().endsWith('.avi') ||
                 fileName.toLowerCase().endsWith('.mov') ||
                 fileName.toLowerCase().endsWith('.mkv') ||
                 fileName.toLowerCase().endsWith('.flv') ||
                 fileName.toLowerCase().endsWith('.wmv') ||
                 fileName.toLowerCase().endsWith('.webm');
-            
+
             // 检查是否为移动端（Android/iOS）
             final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-            
+
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
                   (isVideo && isMobile)
-                    ? '下载成功！视频已保存到相册\n$fileName'
-                    : '下载成功: $fileName\n路径: $filePath'
+                      ? '下载成功！视频已保存到相册\n$fileName'
+                      : '下载成功: $fileName\n路径: $filePath',
                 ),
                 action: SnackBarAction(
                   label: '打开目录',
@@ -155,7 +168,8 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
           if (mounted) {
             String errorMessage = '下载失败: $e';
             // 如果是权限问题，提供更友好的提示
-            if (e.toString().contains('权限') || e.toString().contains('permission')) {
+            if (e.toString().contains('权限') ||
+                e.toString().contains('permission')) {
               errorMessage = '下载失败: 需要存储权限才能下载到公共下载目录，请在设置中授予存储权限';
             }
             ScaffoldMessenger.of(context).showSnackBar(
@@ -169,9 +183,8 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('下载失败: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('下载失败: $e')));
       }
     } finally {
       if (mounted) {
@@ -193,16 +206,15 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
     });
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('抖音解析工具'),
-      ),
+      appBar: AppBar(title: const Text('抖音解析工具')),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final maxWidth = constraints.maxWidth > 800 ? 800.0 : constraints.maxWidth;
+          final maxWidth = constraints.maxWidth > 800
+              ? 800.0
+              : constraints.maxWidth;
           return Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
@@ -247,7 +259,9 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
                           ),
                           const SizedBox(height: 16),
                           ElevatedButton(
-                            onPressed: (_isParsing || _isDownloading) ? null : _handleParsing,
+                            onPressed: (_isParsing || _isDownloading)
+                                ? null
+                                : _handleParsing,
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 16),
                             ),
@@ -255,7 +269,9 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
                                 ? const SizedBox(
                                     height: 20,
                                     width: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   )
                                 : const Text('解析'),
                           ),
@@ -302,7 +318,9 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
                                     border: Border(
                                       bottom: BorderSide(
                                         color: Colors.grey.shade200,
-                                        width: index < _fileList.length - 1 ? 1 : 0,
+                                        width: index < _fileList.length - 1
+                                            ? 1
+                                            : 0,
                                       ),
                                     ),
                                   ),
@@ -310,10 +328,13 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
                                     children: [
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              file.fileName.isEmpty ? '未知文件' : file.fileName,
+                                              file.fileName.isEmpty
+                                                  ? '未知文件'
+                                                  : file.fileName,
                                               style: const TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.bold,
@@ -340,13 +361,16 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
                                       ),
                                       const SizedBox(width: 16),
                                       ElevatedButton(
-                                        onPressed: (_isParsing || _isDownloading)
+                                        onPressed:
+                                            (_isParsing || _isDownloading)
                                             ? null
                                             : () => _handleDownload(
-                                                  file.id.toString(),
-                                                  file.path,
-                                                  file.fileName.isEmpty ? '未知文件' : file.fileName,
-                                                ),
+                                                file.id.toString(),
+                                                file.path,
+                                                file.fileName.isEmpty
+                                                    ? '未知文件'
+                                                    : file.fileName,
+                                              ),
                                         child: const Text('下载'),
                                       ),
                                     ],
@@ -365,4 +389,3 @@ class _DouyinParserScreenState extends State<DouyinParserScreen> {
     );
   }
 }
-

@@ -497,7 +497,7 @@
         async function loadLyrics() {
             try {
                 const musicId = {{.MusicID}};
-                const response = await fetch(`/api/lyrics/get?music_id=${musicId}`);
+                const response = await fetch(`/api/lyrics/get?music_id=${musicId}&share_token={{.ShareToken}}`);
                 const data = await response.json();
                 
                 if (data.success && data.lyrics && data.lyrics.content) {

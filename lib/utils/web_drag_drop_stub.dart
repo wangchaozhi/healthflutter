@@ -17,4 +17,3 @@ class WebDropZone extends StatelessWidget {
     return child;
   }
 }
-

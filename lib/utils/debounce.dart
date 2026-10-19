@@ -82,4 +82,3 @@ class DebounceState {
     _isProcessing = false;
   }
 }
-

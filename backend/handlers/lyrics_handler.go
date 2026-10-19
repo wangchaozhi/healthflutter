@@ -17,6 +17,8 @@ import (
 	"backend/utils"
 )
 
+const maxLyricsUploadBytes = 10 << 20
+
 // formatLyricsContent 格式化歌词内容
 // 将所有内容挤在一行的LRC歌词格式化为标准的多行格式
 func formatLyricsContent(content string) string {
@@ -24,10 +26,10 @@ func formatLyricsContent(content string) string {
 	content = strings.ReplaceAll(content, "\r\n", "")
 	content = strings.ReplaceAll(content, "\n", "")
 	content = strings.ReplaceAll(content, "\r", "")
-	
+
 	// LRC时间标签的正则表达式: [mm:ss.xx] 或 [mm:ss.xxx]
 	timeRegex := regexp.MustCompile(`\[(\d{2}):(\d{2})\.(\d{2,3})\]`)
-	
+
 	// 在每个时间标签前添加换行符（第一个除外）
 	formatted := timeRegex.ReplaceAllStringFunc(content, func(match string) string {
 		// 如果这是内容的开头，不添加换行
@@ -36,12 +38,12 @@ func formatLyricsContent(content string) string {
 		}
 		return "\n" + match
 	})
-	
+
 	// 确保以换行符结尾
 	if !strings.HasSuffix(formatted, "\n") {
 		formatted += "\n"
 	}
-	
+
 	return formatted
 }
 
@@ -58,9 +60,13 @@ func LyricsUploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 解析multipart form
-	err := r.ParseMultipartForm(10 << 20) // 10 MB
+	r.Body = http.MaxBytesReader(w, r.Body, maxLyricsUploadBytes+(1<<20))
+	err := r.ParseMultipartForm(2 << 20)
 	if err != nil {
+		if _, ok := err.(*http.MaxBytesError); ok {
+			http.Error(w, "歌词文件不能超过10MB", http.StatusRequestEntityTooLarge)
+			return
+		}
 		http.Error(w, "解析表单失败", http.StatusBadRequest)
 		return
 	}
@@ -74,16 +80,22 @@ func LyricsUploadHandler(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	// 检查文件类型
-	fileType := strings.ToLower(filepath.Ext(handler.Filename))
+	originalName := filepath.Base(handler.Filename)
+	originalName = strings.ReplaceAll(originalName, "\\", "_")
+	fileType := strings.ToLower(filepath.Ext(originalName))
 	if fileType != ".lrc" && fileType != ".txt" {
 		http.Error(w, "只支持 .lrc 或 .txt 歌词文件", http.StatusBadRequest)
 		return
 	}
 
 	// 读取歌词内容
-	content, err := io.ReadAll(file)
+	content, err := io.ReadAll(io.LimitReader(file, maxLyricsUploadBytes+1))
 	if err != nil {
 		http.Error(w, "读取文件失败", http.StatusInternalServerError)
+		return
+	}
+	if len(content) > maxLyricsUploadBytes {
+		http.Error(w, "歌词文件不能超过10MB", http.StatusRequestEntityTooLarge)
 		return
 	}
 
@@ -100,7 +112,8 @@ func LyricsUploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 生成唯一文件名
 	timestamp := utils.NowTimestamp()
-	filename := fmt.Sprintf("%d_%s_%s.lrc", userID, strings.TrimSuffix(handler.Filename, fileType), timestamp)
+	baseName := strings.TrimSuffix(originalName, fileType)
+	filename := fmt.Sprintf("%d_%s_%s.lrc", userID, baseName, timestamp)
 	filePath := filepath.Join(uploadDir, filename)
 
 	// 保存格式化后的文件
@@ -115,7 +128,7 @@ func LyricsUploadHandler(w http.ResponseWriter, r *http.Request) {
 	// 获取歌词元数据（标题、艺术家等）
 	title := r.FormValue("title")
 	if title == "" {
-		title = strings.TrimSuffix(handler.Filename, fileType)
+		title = strings.TrimSuffix(originalName, fileType)
 	}
 	artist := r.FormValue("artist")
 	musicIDStr := r.FormValue("music_id")
@@ -146,7 +159,9 @@ func LyricsUploadHandler(w http.ResponseWriter, r *http.Request) {
 	if musicID > 0 {
 		if err := database.BindLyricsToMusic(lyrics.ID, musicID, userID); err != nil {
 			log.Printf("绑定歌词到歌曲失败: %v", err)
-			// 绑定失败不影响上传成功，只记录日志
+			_ = database.DeleteLyrics(lyrics.ID, userID)
+			http.Error(w, "无权绑定该音乐", http.StatusForbidden)
+			return
 		} else {
 			log.Printf("歌词已自动绑定到歌曲: lyrics_id=%d, music_id=%d", lyrics.ID, musicID)
 		}
@@ -252,7 +267,7 @@ func LyricsBindHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// LyricsGetByMusicIDHandler 根据音乐ID获取歌词（公开访问，不需要登录）
+// LyricsGetByMusicIDHandler 仅允许音乐所有者或持有对应分享 token 的访客读取歌词。
 func LyricsGetByMusicIDHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "方法不允许", http.StatusMethodNotAllowed)
@@ -267,8 +282,25 @@ func LyricsGetByMusicIDHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	musicID, err := strconv.Atoi(musicIDStr)
-	if err != nil {
+	if err != nil || musicID <= 0 {
 		http.Error(w, "无效的音乐ID", http.StatusBadRequest)
+		return
+	}
+
+	authorized := false
+	if fields := strings.Fields(r.Header.Get("Authorization")); len(fields) == 2 && strings.EqualFold(fields[0], "Bearer") {
+		if claims, verifyErr := VerifyToken(fields[1]); verifyErr == nil {
+			_, ownerErr := database.GetMusicByID(musicID, claims.UserID)
+			authorized = ownerErr == nil
+		}
+	}
+	if !authorized {
+		if share, shareErr := database.GetMusicShareByToken(r.URL.Query().Get("share_token")); shareErr == nil {
+			authorized = share.MusicID == musicID
+		}
+	}
+	if !authorized {
+		http.Error(w, "未授权访问歌词", http.StatusUnauthorized)
 		return
 	}
 
@@ -330,7 +362,7 @@ func LyricsDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":  true,
+		"success":   true,
 		"message":   "删除成功",
 		"music_ids": musicIDs, // 返回绑定的歌曲ID列表，供前端清除缓存
 	})
@@ -363,7 +395,7 @@ func LyricsUnbindHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 解除绑定
-	if err := database.UnbindLyricsFromMusic(musicID); err != nil {
+	if err := database.UnbindLyricsFromMusic(musicID, userID); err != nil {
 		log.Printf("解除歌词绑定失败: music_id=%d, error=%v", musicID, err)
 		http.Error(w, "解除绑定失败", http.StatusInternalServerError)
 		return
