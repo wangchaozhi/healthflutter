@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../screens/about_screen.dart';
 import '../screens/ariang_screen.dart';
 import '../screens/auth_wrapper.dart';
 import '../screens/douyin_parser_screen.dart';
@@ -25,6 +26,7 @@ class AppRouter {
     AppRoutes.login: (_) => const LoginScreen(),
     AppRoutes.register: (_) => const RegisterScreen(),
     AppRoutes.home: (_) => const HomeScreen(),
+    AppRoutes.about: (_) => const AboutScreen(),
     AppRoutes.douyin: (_) => const DouyinParserScreen(),
     AppRoutes.fileTransfer: (_) => const FileTransferScreen(),
     AppRoutes.musicPlayer: (_) => const MusicPlayerScreen(),

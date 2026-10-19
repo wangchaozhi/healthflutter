@@ -5,6 +5,7 @@ class AppRoutes {
   static const login = '/login';
   static const register = '/register';
   static const home = '/home';
+  static const about = '/about';
   static const douyin = '/douyin';
   static const fileTransfer = '/file_transfer';
   static const musicPlayer = '/music_player';

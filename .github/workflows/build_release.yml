@@ -543,11 +543,10 @@ jobs:
 
             Some platform builds may be missing if that job failed. Check the workflow run for details.
 
-            ### v0.3.16 highlights
-            - Harden JWT identity handling, music stream tickets, lyric ownership checks, uploads, and Douyin command execution.
-            - Store login tokens in platform secure storage and stop persisting passwords.
-            - Improve streaming cache, async race handling, activity refresh consistency, and UI rebuild scope.
-            - `API_BASE_URL` can be overridden with `--dart-define`; production deployments should terminate TLS externally because the legacy default endpoint is HTTP.
+            ### Highlights
+            - Display the package version dynamically in the home title.
+            - Add an About page with version, build, package, project, and release information.
+            - Improve the home app bar layout on narrow screens.
             
             ### Downloads
             - **Linux**: `healthflutter-${{ github.ref_name }}-x86_64.AppImage`

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/activity.dart';
+import '../router/app_routes.dart';
 import '../services/activity_store.dart';
 import '../services/auth_repository.dart';
 import '../services/music_player_service.dart';
@@ -12,6 +13,7 @@ import '../widgets/health/activity_list.dart';
 import '../widgets/health/date_time_banner.dart';
 import '../widgets/health/record_form_sheet.dart';
 import '../widgets/health/stats_card.dart';
+import '../widgets/version_badge.dart';
 import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -253,8 +255,26 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _handleMoreAction(_HomeMenuAction action) {
+    switch (action) {
+      case _HomeMenuAction.tools:
+        Navigator.of(context).pushNamed(AppRoutes.toolsMenu);
+        return;
+      case _HomeMenuAction.webview:
+        Navigator.of(context).pushNamed(AppRoutes.webviewMenu);
+        return;
+      case _HomeMenuAction.about:
+        Navigator.of(context).pushNamed(AppRoutes.about);
+        return;
+      case _HomeMenuAction.logout:
+        if (_logoutDebounce.canExecute) _handleLogout();
+        return;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isWideAppBar = MediaQuery.sizeOf(context).width >= 760;
     return Scaffold(
       backgroundColor: _colors.surfaceLight,
       appBar: AppBar(
@@ -281,6 +301,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: _colors.textPrimary,
               ),
             ),
+            const SizedBox(width: 8),
+            const VersionBadge(compact: true),
           ],
         ),
         backgroundColor: _colors.surfaceCard,
@@ -289,25 +311,67 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           _buildAppBarBtn(Icons.palette_outlined, '主题', _showThemePicker),
           _buildAppBarBtn(
-            Icons.construction,
-            '工具',
-            () => Navigator.of(context).pushNamed('/tools_menu'),
-          ),
-          _buildAppBarBtn(
-            Icons.public,
-            'WebView',
-            () => Navigator.of(context).pushNamed('/webview_menu'),
-          ),
-          _buildAppBarBtn(
             Icons.music_note,
             '音乐',
-            () => Navigator.of(context).pushNamed('/music_player'),
+            () => Navigator.of(context).pushNamed(AppRoutes.musicPlayer),
           ),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            onPressed: _logoutDebounce.canExecute ? _handleLogout : null,
-            tooltip: '退出登录',
-          ),
+          if (isWideAppBar) ...[
+            _buildAppBarBtn(
+              Icons.construction,
+              '工具',
+              () => Navigator.of(context).pushNamed(AppRoutes.toolsMenu),
+            ),
+            _buildAppBarBtn(
+              Icons.public,
+              'WebView',
+              () => Navigator.of(context).pushNamed(AppRoutes.webviewMenu),
+            ),
+            _buildAppBarBtn(
+              Icons.info_outline_rounded,
+              '关于',
+              () => Navigator.of(context).pushNamed(AppRoutes.about),
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout_rounded),
+              onPressed: _logoutDebounce.canExecute ? _handleLogout : null,
+              tooltip: '退出登录',
+            ),
+          ] else
+            PopupMenuButton<_HomeMenuAction>(
+              tooltip: '更多',
+              onSelected: _handleMoreAction,
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: _HomeMenuAction.tools,
+                  child: ListTile(
+                    leading: Icon(Icons.construction),
+                    title: Text('工具'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _HomeMenuAction.webview,
+                  child: ListTile(
+                    leading: Icon(Icons.public),
+                    title: Text('WebView'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _HomeMenuAction.about,
+                  child: ListTile(
+                    leading: Icon(Icons.info_outline_rounded),
+                    title: Text('关于'),
+                  ),
+                ),
+                PopupMenuDivider(),
+                PopupMenuItem(
+                  value: _HomeMenuAction.logout,
+                  child: ListTile(
+                    leading: Icon(Icons.logout_rounded),
+                    title: Text('退出登录'),
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
       body: ListenableBuilder(
@@ -388,3 +452,5 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+
+enum _HomeMenuAction { tools, webview, about, logout }
